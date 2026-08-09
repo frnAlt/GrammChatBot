@@ -1,4 +1,4 @@
-if (!global.client.busyList)
+if (global.client && !global.client.busyList)
 	global.client.busyList = {};
 
 module.exports = {

@@ -1,3 +1,4 @@
+if (!global.GoatBot.config.adminOnly) global.GoatBot.config.adminOnly = { ignoreCommand: [] };
 const ignoreList = global.GoatBot.config.adminOnly.ignoreCommand;
 const fs = require("fs-extra");
 

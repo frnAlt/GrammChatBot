@@ -1,4 +1,4 @@
-const deltaNext = global.GoatBot.configCommands.envCommands.rank.deltaNext;
+const deltaNext = global.GoatBot?.configCommands?.envCommands?.rank?.deltaNext || 5;
 const expToLevel = exp => Math.floor((1 + Math.sqrt(1 + 8 * exp / deltaNext)) / 2);
 const { drive } = global.utils;
 

@@ -1,4 +1,14 @@
-const { createCanvas, loadImage, registerFont } = require('canvas');
+let createCanvas, loadImage, registerFont;
+try {
+    const canvasObj = require('canvas');
+    createCanvas = canvasObj.createCanvas;
+    loadImage = canvasObj.loadImage;
+    registerFont = canvasObj.registerFont;
+} catch (e) {
+    createCanvas = null;
+    loadImage = null;
+    registerFont = () => {};
+}
 const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
@@ -6,11 +16,15 @@ const os = require('os');
 const fontDir = path.join(__dirname, 'assets', 'font');
 const cacheDir = path.join(__dirname, 'cache');
 
-registerFont(path.join(fontDir, 'BeVietnamPro-Bold.ttf'), { family: 'BeVietnamPro', weight: 'bold' });
-registerFont(path.join(fontDir, 'BeVietnamPro-SemiBold.ttf'), { family: 'BeVietnamPro', weight: '600' });
-registerFont(path.join(fontDir, 'BeVietnamPro-Regular.ttf'), { family: 'BeVietnamPro', weight: 'normal' });
-registerFont(path.join(fontDir, 'NotoSans-Bold.ttf'), { family: 'NotoSans', weight: 'bold' });
-registerFont(path.join(fontDir, 'NotoSans-SemiBold.ttf'), { family: 'NotoSans', weight: '600' });
+if (createCanvas) {
+    try {
+        registerFont(path.join(fontDir, 'BeVietnamPro-Bold.ttf'), { family: 'BeVietnamPro', weight: 'bold' });
+        registerFont(path.join(fontDir, 'BeVietnamPro-SemiBold.ttf'), { family: 'BeVietnamPro', weight: '600' });
+        registerFont(path.join(fontDir, 'BeVietnamPro-Regular.ttf'), { family: 'BeVietnamPro', weight: 'normal' });
+        registerFont(path.join(fontDir, 'NotoSans-Bold.ttf'), { family: 'NotoSans', weight: 'bold' });
+        registerFont(path.join(fontDir, 'NotoSans-SemiBold.ttf'), { family: 'NotoSans', weight: '600' });
+    } catch (e) {}
+}
 
 function formatBytes(bytes, decimals = 2) {
     if (bytes === 0) return '0 B';

@@ -337,7 +337,7 @@ class AICore {
                         }
 
                         const fallbackUrl = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?system=${encodeURIComponent(systemPrompt)}`;
-                        const { data } = await axios.get(fallbackUrl);
+                        const { data } = await axios.get(fallbackUrl, { timeout: 3000 });
                         return typeof data === "string" ? data : JSON.stringify(data);
                 } catch (e) {
                         return `✨ [GrammChatBot AI]: Hello! I received your prompt: "${prompt}". Configure your API key in config.json or the Dashboard to enable full LLM responses!`;

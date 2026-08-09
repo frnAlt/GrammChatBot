@@ -1,22 +1,24 @@
-const Canvas = require("canvas");
-const { uploadZippyshare } = global.utils;
-
+let Canvas;
 const defaultFontName = "BeVietnamPro-SemiBold";
 const defaultPathFontName = `${__dirname}/assets/font/BeVietnamPro-SemiBold.ttf`;
-const { randomString } = global.utils;
-const percentage = total => total / 100;
+const { uploadZippyshare, randomString } = global.utils;
 
-Canvas.registerFont(`${__dirname}/assets/font/BeVietnamPro-Bold.ttf`, {
-	family: "BeVietnamPro-Bold"
-});
-Canvas.registerFont(defaultPathFontName, {
-	family: defaultFontName
-});
+try {
+	Canvas = require("canvas");
+	Canvas.registerFont(`${__dirname}/assets/font/BeVietnamPro-Bold.ttf`, {
+		family: "BeVietnamPro-Bold"
+	});
+	Canvas.registerFont(defaultPathFontName, {
+		family: defaultFontName
+	});
+} catch (e) {
+	Canvas = null;
+}
 
 let deltaNext;
 const expToLevel = (exp, deltaNextLevel = deltaNext) => Math.floor((1 + Math.sqrt(1 + 8 * exp / deltaNextLevel)) / 2);
 const levelToExp = (level, deltaNextLevel = deltaNext) => Math.floor(((Math.pow(level, 2) - level) * deltaNextLevel) / 2);
-global.client.makeRankCard = makeRankCard;
+if (global.client) global.client.makeRankCard = makeRankCard;
 
 module.exports = {
 	config: {

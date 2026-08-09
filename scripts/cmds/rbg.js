@@ -23,7 +23,7 @@ function extractImageUrl(args, event) {
 module.exports = {
   config: {
     name: "rbg",
-    aliases: ["removebg", "nobg", "bgremove"],
+    aliases: ["nobg-fast"],
     version: "2.0",
     author: "frnAlt & Gtajisan",
     countDown: 10,

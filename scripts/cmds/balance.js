@@ -1,4 +1,14 @@
-const { createCanvas, loadImage, registerFont } = require('canvas');
+let createCanvas, loadImage, registerFont;
+try {
+    const canvasObj = require('canvas');
+    createCanvas = canvasObj.createCanvas;
+    loadImage = canvasObj.loadImage;
+    registerFont = canvasObj.registerFont;
+} catch (e) {
+    createCanvas = null;
+    loadImage = null;
+    registerFont = () => {};
+}
 const fs = require('fs-extra');
 const path = require('path');
 const axios = require('axios');
@@ -7,16 +17,16 @@ const fontDir = path.join(__dirname, 'assets', 'font');
 const cacheDir = path.join(__dirname, 'cache');
 
 try {
-    if (fs.existsSync(path.join(fontDir, 'NotoSans-Bold.ttf'))) {
+    if (createCanvas && fs.existsSync(path.join(fontDir, 'NotoSans-Bold.ttf'))) {
         registerFont(path.join(fontDir, 'NotoSans-Bold.ttf'), { family: 'NotoSans', weight: 'bold' });
     }
-    if (fs.existsSync(path.join(fontDir, 'NotoSans-SemiBold.ttf'))) {
+    if (createCanvas && fs.existsSync(path.join(fontDir, 'NotoSans-SemiBold.ttf'))) {
         registerFont(path.join(fontDir, 'NotoSans-SemiBold.ttf'), { family: 'NotoSans', weight: '600' });
     }
-    if (fs.existsSync(path.join(fontDir, 'NotoSans-Regular.ttf'))) {
+    if (createCanvas && fs.existsSync(path.join(fontDir, 'NotoSans-Regular.ttf'))) {
         registerFont(path.join(fontDir, 'NotoSans-Regular.ttf'), { family: 'NotoSans', weight: 'normal' });
     }
-    if (fs.existsSync(path.join(fontDir, 'BeVietnamPro-Bold.ttf'))) {
+    if (createCanvas && fs.existsSync(path.join(fontDir, 'BeVietnamPro-Bold.ttf'))) {
         registerFont(path.join(fontDir, 'BeVietnamPro-Bold.ttf'), { family: 'BeVietnamPro', weight: 'bold' });
     }
     if (fs.existsSync(path.join(fontDir, 'BeVietnamPro-SemiBold.ttf'))) {
