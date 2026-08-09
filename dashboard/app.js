@@ -1,6 +1,6 @@
 /**
  * Express.js Web Dashboard for GrammChatBot
- * Includes Real-Time Stats Panel and AstrBot AI Panel (Provider Switching, Persona System Prompts, Tool Toggles)
+ * Includes Real-Time Stats Panel, FCA-to-TCA status, and AstrBot AI & Plugin Management APIs
  */
 
 const express = require("express");
@@ -16,6 +16,7 @@ const http = require("http");
 const path = require("path");
 
 const aiCore = require("../system/ai-core.js");
+const astrbotApi = require("../system/astrbot-api.js");
 const server = http.createServer(app);
 
 module.exports = async function startDashboard(tokenManager) {
@@ -95,12 +96,22 @@ module.exports = async function startDashboard(tokenManager) {
                 });
         });
 
-        // API Endpoint: Get AI Configuration
+        // AstrBot API Endpoint: Get Providers
+        app.get("/api/astrbot/providers", (req, res) => {
+                res.json({
+                        status: "success",
+                        activeProvider: aiCore.getProvider(),
+                        model: aiCore.state.model,
+                        providers: ["openai", "gemini", "claude", "deepseek", "ollama"]
+                });
+        });
+
+        // AstrBot API Endpoint: Get Configuration
         app.get("/api/ai/config", (req, res) => {
                 res.json({ status: "success", aiState: aiCore.state });
         });
 
-        // API Endpoint: Update AI Provider, Persona System Prompt, or Tools
+        // AstrBot API Endpoint: Update AI Provider, Persona, or Tools
         app.post("/api/ai/config", (req, res) => {
                 const { provider, model, systemPrompt, toolsEnabled } = req.body;
 
@@ -118,9 +129,19 @@ module.exports = async function startDashboard(tokenManager) {
 
                 res.json({
                         status: "success",
-                        message: "AI Core configuration updated successfully.",
+                        message: "AstrBot AI Core configuration updated successfully.",
                         aiState: aiCore.state
                 });
+        });
+
+        // AstrBot API Endpoint: Add Document to RAG Knowledge Base
+        app.post("/api/astrbot/rag", (req, res) => {
+                const { text, metadata } = req.body;
+                if (!text) {
+                        return res.status(400).json({ status: "error", message: "Document text is required." });
+                }
+                aiCore.addDocumentToRAG(text, metadata || {});
+                res.json({ status: "success", message: "Document added to Knowledge Base RAG." });
         });
 
         // Keep-Alive Health Endpoint
@@ -130,5 +151,5 @@ module.exports = async function startDashboard(tokenManager) {
 
         const PORT = process.env.PORT || config.dashBoard?.port || 5000;
         await server.listen(PORT);
-        utils.log.info("DASHBOARD", `Express Web Dashboard & AI Control Panel running at http://localhost:${PORT}`);
+        utils.log.info("DASHBOARD", `Express Web Dashboard & AstrBot AI Control Panel running at http://localhost:${PORT}`);
 };
