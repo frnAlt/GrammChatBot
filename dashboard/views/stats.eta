@@ -1,71 +1,116 @@
-<%~ includeFile("partials/header", {
-	user: user
-}); %>
+<%~ includeFile("partials/header", { user: user }); %>
 <%~ includeFile("partials/message.eta"); %>
-<%~ includeFile("partials/title.eta", {
-	icon: "fas fa-robot",
-	title: "Bot stats"
-}); %>
 
-<section class="post my-4">
-  <div class="container">
-    <table class="table table-borderless">
-      <tbody>
-        <tr class="text-start">
-          <td><i class="fas fa-users"></i> Users</td>
-          <td>
-            <%= totalUser %>
-          </td>
-        </tr>
-        <tr class="text-start">
-          <td><i class="fas fa-server"></i> Threads</td>
-          <td>
-            <%= totalThread %>
-          </td>
-        </tr>
-        <tr class="text-start">
-          <td><i class="fas fa-hashtag"></i> Prefix</td>
-          <td>
-            <%= prefix %>
-          </td>
-        </tr>
-        <tr class="text-start">
-          <td><i class="fa fa-clock"></i> Uptime</td>
-          <td id="uptime">
-            <%= uptime %>
-          </td>
-        </tr>
-        <tr class="text-start">
-          <td><i class="fab fa-node-js"></i> Node.js Version</td>
-          <td>
-            <%= process.version %>
-          </td>
-        </tr>
-        <tr class="text-start">
-          <td><i class="fa-solid fa-memory"></i> Memory</td>
-          <td>
-						<%= (process.memoryUsage().rss / 1024 / 1024).toFixed(2) %> MB
-          </td>
-        </tr>
-				<tr class="text-start">
-					<td style="font-size: 15px;"><i class="fa-solid fa-memory"></i> CPU</td>
-					<td style="font-size: 15px;">
-						<%= (process.cpuUsage().system / 1024 / 1024).toFixed(2) %>%
-					</td>
-				</tr>
-				<tr class="text-start">
-					<td style="font-size: 15px;"><i class="fa-solid fa-memory"></i> Node CPU</td>
-					<td style="font-size: 15px;">
-						<%= (process.cpuUsage().user / 1024 / 1024).toFixed(2) %>%
-					</td>
-				</tr>
-			</tbody>
-    </table>
+<div class="container my-4">
+  <div class="row">
+    <!-- Real-Time System Stats Panel -->
+    <div class="col-md-6 mb-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white d-flex align-items-center">
+          <i class="fas fa-server me-2"></i><strong>System & Telegram Stats</strong>
+        </div>
+        <div class="card-body">
+          <table class="table table-borderless mb-0">
+            <tbody>
+              <tr>
+                <td><i class="fab fa-telegram text-primary me-2"></i><strong>Bot Username:</strong></td>
+                <td>@<%= botUsername %> (ID: <%= botId %>)</td>
+              </tr>
+              <tr>
+                <td><i class="fas fa-signal text-success me-2"></i><strong>Polling Status:</strong></td>
+                <td><span class="badge bg-<%= pollingStatus === 'Active' ? 'success' : 'danger' %>"><%= pollingStatus %></span></td>
+              </tr>
+              <tr>
+                <td><i class="fas fa-key text-warning me-2"></i><strong>Active Token Index:</strong></td>
+                <td>Index <%= activeTokenIndex %> of <%= totalTokens %> Token(s)</td>
+              </tr>
+              <tr>
+                <td><i class="fas fa-code text-info me-2"></i><strong>Loaded Commands:</strong></td>
+                <td><%= totalCommands %> Commands / <%= totalEvents %> Events</td>
+              </tr>
+              <tr>
+                <td><i class="fa fa-clock text-secondary me-2"></i><strong>Uptime:</strong></td>
+                <td id="uptime"><%= uptime %></td>
+              </tr>
+              <tr>
+                <td><i class="fa-solid fa-memory text-danger me-2"></i><strong>RAM Usage:</strong></td>
+                <td><%= heapUsedMB %> MB / <%= rssMB %> MB</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- AstrBot Agentic AI Panel -->
+    <div class="col-md-6 mb-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white d-flex align-items-center">
+          <i class="fas fa-brain me-2"></i><strong>AstrBot Agentic AI Control Panel</strong>
+        </div>
+        <div class="card-body">
+          <form id="aiConfigForm">
+            <div class="mb-3">
+              <label class="form-label font-semibold">LLM Provider Routing:</label>
+              <select id="aiProviderSelect" class="form-select">
+                <option value="openai" <%= aiState.provider === 'openai' ? 'selected' : '' %>>OpenAI (gpt-4o-mini)</option>
+                <option value="gemini" <%= aiState.provider === 'gemini' ? 'selected' : '' %>>Google Gemini (gemini-1.5-flash)</option>
+                <option value="claude" <%= aiState.provider === 'claude' ? 'selected' : '' %>>Anthropic Claude (claude-3-haiku)</option>
+                <option value="deepseek" <%= aiState.provider === 'deepseek' ? 'selected' : '' %>>DeepSeek AI (deepseek-chat)</option>
+                <option value="ollama" <%= aiState.provider === 'ollama' ? 'selected' : '' %>>Local Ollama (llama3)</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label font-semibold">Persona System Prompt:</label>
+              <textarea id="aiSystemPrompt" class="form-control" rows="3"><%= aiState.systemPrompt %></textarea>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label font-semibold">Agentic Tool Toggles:</label>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="toolWebSearch" <%= aiState.toolsEnabled.webSearch ? 'checked' : '' %>>
+                <label class="form-check-label" for="toolWebSearch">🌐 Enable Web Search Tool</label>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="toolCodeInterpreter" <%= aiState.toolsEnabled.codeInterpreter ? 'checked' : '' %>>
+                <label class="form-check-label" for="toolCodeInterpreter">💻 Enable Code Interpreter Sandbox</label>
+              </div>
+            </div>
+
+            <button type="button" onclick="updateAIConfig()" class="btn btn-primary w-100"><i class="fas fa-save me-1"></i> Save AI Configuration</button>
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
-</section>
+</div>
 
 <script type="text/javascript">
-  function cvt(e,t="giây",o="phút ",n="giờ ",r="ngày ",a="tháng ",c="năm "){const u=Math.floor(e/1e3%60),i=Math.floor(e/1e3/60%60),l=Math.floor(e/1e3/60/60%24),f=Math.floor(e/1e3/60/60/24%30),h=Math.floor(e/1e3/60/60/24/30%12),m=Math.floor(e/1e3/60/60/24/30/12);return`${m?m+c:""}${h?h+a:m?"00"+a:""}${f?f+r:h||m?"00"+r:""}${l?l+n:f||h||m?"00"+n:""}${i?i+o:l||f||h||m?"00"+o:""}${u}${t}`}let countDownDate=Number("<%=uptimeSecond%>");setInterval((function(){countDownDate+=1,document.getElementById("uptime").innerHTML=cvt(1e3*countDownDate)}),1e3);
+  async function updateAIConfig() {
+    const provider = document.getElementById("aiProviderSelect").value;
+    const systemPrompt = document.getElementById("aiSystemPrompt").value;
+    const webSearch = document.getElementById("toolWebSearch").checked;
+    const codeInterpreter = document.getElementById("toolCodeInterpreter").checked;
+
+    try {
+      const res = await fetch("/api/ai/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider,
+          systemPrompt,
+          toolsEnabled: { webSearch, codeInterpreter }
+        })
+      });
+      const data = await res.json();
+      alert("✅ " + data.message);
+    } catch (e) {
+      alert("❌ Failed updating AI configuration: " + e.message);
+    }
+  }
+
+  function cvt(e,t="s",o="m ",n="h ",r="d "){const u=Math.floor(e/1e3%60),i=Math.floor(e/1e3/60%60),l=Math.floor(e/1e3/60/60%24),f=Math.floor(e/1e3/60/60/24);return`${f?f+r:""}${l?l+n:""}${i?i+o:""}${u}${t}`}let countDownDate=Number("<%=uptimeSecond%>");setInterval((function(){countDownDate+=1,document.getElementById("uptime").innerHTML=cvt(1e3*countDownDate)}),1e3);
 </script>
 
 <%~ includeFile("partials/footer") %>

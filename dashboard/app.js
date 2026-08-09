@@ -1,3 +1,8 @@
+/**
+ * Express.js Web Dashboard for GrammChatBot
+ * Includes Real-Time Stats Panel and AstrBot AI Panel (Provider Switching, Persona System Prompts, Tool Toggles)
+ */
+
 const express = require("express");
 const app = express();
 const fileUpload = require("express-fileupload");
@@ -7,288 +12,123 @@ const session = require("express-session");
 const eta = require("eta");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
-const flash = require("connect-flash");
-const Passport = require("passport");
-const bcrypt = require("bcrypt");
-const axios = require("axios");
-const mimeDB = require("mime-db");
 const http = require("http");
+const path = require("path");
+
+const aiCore = require("../system/ai-core.js");
 const server = http.createServer(app);
 
-const imageExt = ["png", "gif", "webp", "jpeg", "jpg"];
-const videoExt = ["webm", "mkv", "flv", "vob", "ogv", "ogg", "rrc", "gifv",
-        "mng", "mov", "avi", "qt", "wmv", "yuv", "rm", "asf", "amv", "mp4",
-        "m4p", "m4v", "mpg", "mp2", "mpeg", "mpe", "mpv", "m4v", "svi", "3gp",
-        "3g2", "mxf", "roq", "nsv", "flv", "f4v", "f4p", "f4a", "f4b", "mod"
-];
-const audioExt = ["3gp", "aa", "aac", "aax", "act", "aiff", "alac", "amr",
-        "ape", "au", "awb", "dss", "dvf", "flac", "gsm", "iklax", "ivs",
-        "m4a", "m4b", "m4p", "mmf", "mp3", "mpc", "msv", "nmf",
-        "ogg", "oga", "mogg", "opus", "ra", "rm", "raw", "rf64", "sln", "tta",
-        "voc", "vox", "wav", "wma", "wv", "webm", "8svx", "cd"
-];
+module.exports = async function startDashboard(tokenManager) {
+        const { GoatBot, utils } = global;
+        const config = GoatBot.config;
 
+        eta.configure({ useWith: true });
 
-module.exports = async (api) => {
-        if (!api)
-                await require("./connectDB.js")();
-
-        const { utils } = global;
-        const { config } = global.GoatBot;
-        const { expireVerifyCode } = config.dashBoard;
-
-        const getText = global.utils.getText;
-
-
-        const {
-                threadModel,
-                userModel,
-                dashBoardModel,
-                threadsData,
-                usersData,
-                dashBoardData
-        } = global.db;
-
-
-        // const verifyCodes = {
-        //     fbid: [],
-        //     register: [],
-        //     forgetPass: []
-        // };
-
-        eta.configure({
-                useWith: true
-        });
-
-        app.set("views", `${__dirname}/views`);
+        app.set("views", path.join(__dirname, "views"));
         app.engine("eta", eta.renderFile);
         app.set("view engine", "eta");
 
         app.use(bodyParser.json());
         app.use(bodyParser.urlencoded({ extended: true }));
         app.use(cookieParser());
-        const sessionSecretFile = `${process.cwd()}/.session_secret`;
-        const sessionSecret = fs.existsSync(sessionSecretFile)
-                ? fs.readFileSync(sessionSecretFile, "utf8").trim()
-                : (() => {
-                        const secret = utils.randomString(64);
-                        fs.writeFileSync(sessionSecretFile, secret);
-                        return secret;
-                })();
-        const sessionStore = new session.MemoryStore();
-        // Periodic cleanup of expired sessions to prevent MemoryStore memory leak
-        setInterval(() => {
-                sessionStore.all((err, sessions) => {
-                        if (err || !sessions) return;
-                        const now = Date.now();
-                        Object.keys(sessions).forEach(sid => {
-                                const expires = sessions[sid]?.cookie?.expires;
-                                if (expires && new Date(expires).getTime() < now)
-                                        sessionStore.destroy(sid, () => {});
-                        });
-                });
-        }, 60 * 60 * 1000); // every hour
 
+        const sessionStore = new session.MemoryStore();
         app.use(session({
-                secret: sessionSecret,
+                secret: config.dashBoard?.secret || "grammchatbot-secret-key-12345",
                 resave: false,
                 saveUninitialized: false,
                 store: sessionStore,
-                cookie: {
-                        secure: false,
-                        httpOnly: true,
-                        maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
-                }
+                cookie: { maxAge: 1000 * 60 * 60 * 24 }
         }));
 
+        // Static files
+        app.use("/css", express.static(path.join(__dirname, "css")));
+        app.use("/js", express.static(path.join(__dirname, "js")));
+        app.use("/images", express.static(path.join(__dirname, "images")));
 
-        // public folder 
-        app.use("/css", express.static(`${__dirname}/css`));
-        app.use("/js", express.static(`${__dirname}/js`));
-        app.use("/images", express.static(`${__dirname}/images`));
-
-        require("./passport-config.js")(Passport, dashBoardData, bcrypt);
-        app.use(Passport.initialize());
-        app.use(Passport.session());
-        app.use(fileUpload());
-
-        app.use(flash());
-        app.use(function (req, res, next) {
-                res.locals.__dirname = __dirname;
-                res.locals.success = req.flash("success") || [];
-                res.locals.errors = req.flash("errors") || [];
-                res.locals.warnings = req.flash("warnings") || [];
-                res.locals.user = req.user || null;
-                next();
-        });
-
-        const generateEmailVerificationCode = require("./scripts/generate-Email-Verification.js");
-
-        // ————————————————— MIDDLEWARE ————————————————— //
-        const createLimiter = (ms, max) => rateLimit({
-                windowMs: ms, // 5 minutes
-                max,
-                handler: (req, res) => {
-                        res.status(429).send({
-                                status: "error",
-                                message: getText("app", "tooManyRequests")
-                        });
-                }
-        });
-
-        const middleWare = require("./middleware/index.js")(checkAuthConfigDashboardOfThread);
-
-        // ————————————————————————————————————————————— //
-
-        async function checkAuthConfigDashboardOfThread(threadData, userID) {
-                if (!isNaN(threadData))
-                        threadData = await threadsData.get(threadData);
-                return threadData.adminIDs?.includes(userID) || threadData.members?.some(m => m.userID == userID && m.permissionConfigDashboard == true) || false;
-        }
-
-        const isVideoFile = (mimeType) => videoExt.includes(mimeDB[mimeType]?.extensions?.[0]);
-
-        // ROUTES & MIDDLWARE
-        const {
-                unAuthenticated,
-                isWaitVerifyAccount,
-                isAuthenticated,
-                isAdmin,
-                isVeryfiUserIDFacebook,
-                checkHasAndInThread,
-                middlewareCheckAuthConfigDashboardOfThread
-        } = middleWare;
-
-        const paramsForRoutes = {
-                unAuthenticated, isWaitVerifyAccount, isAdmin, isAuthenticated,
-                isVeryfiUserIDFacebook, checkHasAndInThread, middlewareCheckAuthConfigDashboardOfThread,
-
-                generateEmailVerificationCode, dashBoardData, expireVerifyCode, Passport, isVideoFile,
-
-                threadsData, api, createLimiter, config, checkAuthConfigDashboardOfThread,
-                imageExt, videoExt, audioExt, usersData
-        };
-
-        const registerRoute = require("./routes/register.js")(paramsForRoutes);
-        const loginRoute = require("./routes/login.js")(paramsForRoutes);
-        const forgotPasswordRoute = require("./routes/forgotPassword.js")(paramsForRoutes);
-        const changePasswordRoute = require("./routes/changePassword.js")(paramsForRoutes);
-        const dashBoardRoute = require("./routes/dashBoard.js")(paramsForRoutes);
-        const verifyFbidRoute = require("./routes/verifyfbid.js")(paramsForRoutes);
-        const apiRouter = require("./routes/api.js")(paramsForRoutes);
-
-        app.get(["/", "/home"], (req, res) => {
-                res.render("home");
-        });
-
-        app.get("/stats", async (req, res) => {
-                let fcaVersion;
-                try {
-                        fcaVersion = require("@lazyneoaz/metachat/package.json").version;
-                }
-                catch (e) {
-                        fcaVersion = "unknown";
-                }
-
-                const totalThread = (await threadsData.getAll()).filter(t => t.threadID.toString().length > 15).length;
-                const totalUser = (await usersData.getAll()).length;
-                const prefix = config.prefix;
-                const uptime = utils.convertTime(process.uptime() * 1000);
+        // Main Dashboard View (index.html / stats)
+        app.get(["/", "/home", "/index.html", "/stats"], (req, res) => {
+                const mem = process.memoryUsage();
+                const tokenStats = tokenManager ? tokenManager.getStats() : {};
+                const uptimeSeconds = Math.floor((Date.now() - GoatBot.startTime) / 1000);
+                const uptimeFormatted = utils.convertTime ? utils.convertTime(uptimeSeconds * 1000) : `${uptimeSeconds}s`;
 
                 res.render("stats", {
-                        fcaVersion,
-                        totalThread,
-                        totalUser,
-                        prefix,
-                        uptime,
-                        uptimeSecond: process.uptime()
+                        botUsername: tokenStats.botInfo?.username || "GrammChatBot",
+                        botId: tokenStats.botInfo?.id || "N/A",
+                        pollingStatus: tokenStats.isPolling ? "Active" : "Stopped",
+                        activeTokenIndex: tokenStats.activeTokenIndex || 0,
+                        totalTokens: tokenStats.totalTokens || 0,
+                        rotationCount: tokenStats.rotationCount || 0,
+                        heapUsedMB: (mem.heapUsed / 1024 / 1024).toFixed(2),
+                        heapTotalMB: (mem.heapTotal / 1024 / 1024).toFixed(2),
+                        rssMB: (mem.rss / 1024 / 1024).toFixed(2),
+                        totalCommands: GoatBot.commands.size,
+                        totalEvents: GoatBot.eventCommands.size,
+                        prefix: config.prefix || "/",
+                        uptime: uptimeFormatted,
+                        uptimeSecond: uptimeSeconds,
+                        aiState: aiCore.state
                 });
         });
 
-        app.get("/profile", isAuthenticated, async (req, res) => {
-                res.render("profile", {
-                        userData: await usersData.get(req.user.facebookUserID) || {}
-                });
-        });
-
-        app.get("/donate", (req, res) => res.render("donate"));
-
-        app.get("/logout", (req, res, next) => {
-                req.logout(function (err) {
-                        if (err)
-                                return next(err);
-                        res.redirect("/");
-                });
-        });
-
-        app.post("/changefbstate", isAuthenticated, isVeryfiUserIDFacebook, (req, res) => {
-                if (!global.GoatBot.config.adminBot.includes(req.user.facebookUserID))
-                        return res.send({
-                                status: "error",
-                                message: getText("app", "notPermissionChangeFbstate")
-                        });
-                const { fbstate } = req.body;
-                if (!fbstate)
-                        return res.send({
-                                status: "error",
-                                message: getText("app", "notFoundFbstate")
-                        });
-
-                fs.writeFile(process.cwd() + "/account.txt", fbstate, err => {
-                        if (err) console.error('[DASHBOARD] Failed to write account.txt:', err.message);
-                });
-                res.send({
+        // API Endpoint: Get Current System & AI Stats
+        app.get("/api/stats", (req, res) => {
+                const mem = process.memoryUsage();
+                const tokenStats = tokenManager ? tokenManager.getStats() : {};
+                res.json({
                         status: "success",
-                        message: getText("app", "changedFbstateSuccess")
-                });
-
-                res.on("finish", () => {
-                        process.exit(2);
+                        telegram: {
+                                username: tokenStats.botInfo?.username || null,
+                                id: tokenStats.botInfo?.id || null,
+                                polling: tokenStats.isPolling || false,
+                                activeTokenIndex: tokenStats.activeTokenIndex || 0,
+                                totalTokens: tokenStats.totalTokens || 0
+                        },
+                        memory: {
+                                heapUsedMB: parseFloat((mem.heapUsed / 1024 / 1024).toFixed(2)),
+                                heapTotalMB: parseFloat((mem.heapTotal / 1024 / 1024).toFixed(2)),
+                                rssMB: parseFloat((mem.rss / 1024 / 1024).toFixed(2))
+                        },
+                        ai: aiCore.state,
+                        uptimeSeconds: Math.floor((Date.now() - GoatBot.startTime) / 1000)
                 });
         });
-        app.get("/uptime", global.responseUptimeCurrent);
 
-        // Health check endpoint for Render/Railway
+        // API Endpoint: Get AI Configuration
+        app.get("/api/ai/config", (req, res) => {
+                res.json({ status: "success", aiState: aiCore.state });
+        });
+
+        // API Endpoint: Update AI Provider, Persona System Prompt, or Tools
+        app.post("/api/ai/config", (req, res) => {
+                const { provider, model, systemPrompt, toolsEnabled } = req.body;
+
+                if (provider) {
+                        aiCore.setProvider(provider, model);
+                }
+                if (systemPrompt) {
+                        aiCore.setSystemPrompt(systemPrompt);
+                }
+                if (toolsEnabled && typeof toolsEnabled === "object") {
+                        for (const [tool, enabled] of Object.entries(toolsEnabled)) {
+                                aiCore.toggleTool(tool, enabled);
+                        }
+                }
+
+                res.json({
+                        status: "success",
+                        message: "AI Core configuration updated successfully.",
+                        aiState: aiCore.state
+                });
+        });
+
+        // Keep-Alive Health Endpoint
         app.get("/health", (req, res) => {
-                res.status(200).json({ status: "ok", uptime: process.uptime() });
+                res.status(200).json({ status: "ok", polling: tokenManager?.isPolling || false, uptime: process.uptime() });
         });
 
-        app.get("/changefbstate", isAuthenticated, isVeryfiUserIDFacebook, isAdmin, (req, res) => {
-                res.render("changeFbstate", {
-                        currentFbstate: fs.readFileSync(process.cwd() + "/account.txt", "utf8")
-                });
-        });
-
-        app.use("/register", registerRoute);
-        app.use("/login", loginRoute);
-        app.use("/forgot-password", forgotPasswordRoute);
-        app.use("/change-password", changePasswordRoute);
-        app.use("/dashboard", dashBoardRoute);
-        app.use("/verifyfbid", verifyFbidRoute);
-        app.use("/api", apiRouter);
-
-        app.get("*", (req, res) => {
-                res.status(404).render("404");
-        });
-
-        // catch global error   
-        app.use((err, req, res, next) => {
-                if (err.message == "Login sessions require session support. Did you forget to use `express-session` middleware?")
-                        return res.status(500).send(getText("app", "serverError"));
-        });
-
-        const PORT = process.env.PORT || config.dashBoard.port || config.serverUptime.port || 3001;
-        const replitDomain = process.env.REPLIT_DOMAINS?.split(",")[0];
-        const dashBoardUrl = replitDomain
-                ? `https://${replitDomain}`
-                : process.env.API_SERVER_EXTERNAL == "https://api.glitch.com"
-                        ? `https://${process.env.PROJECT_DOMAIN}.glitch.me`
-                        : `http://localhost:${PORT}`;
+        const PORT = process.env.PORT || config.dashBoard?.port || 5000;
         await server.listen(PORT);
-        utils.log.info("DASHBOARD", `Dashboard is running: ${dashBoardUrl}`);
-        if (config.serverUptime.socket.enable == true)
-                require("../bot/login/socketIO.js")(server);
+        utils.log.info("DASHBOARD", `Express Web Dashboard & AI Control Panel running at http://localhost:${PORT}`);
 };
-
-
-

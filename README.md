@@ -1,8 +1,8 @@
 <div align="center">
 
-![GrammChatBot Anime Girl Mascot](./images/banner.jpg)
+![GrammChatBot Cute Normal Anime Girl Mascot](./images/banner.jpg)
 
-# ⚡ GrammChatBot - FCA to TCA Framework Port (GoatBot V2)
+# ⚡ GrammChatBot - FCA to TCA Framework Port with AstrBot AI Engine
 
 ```
    ██████╗ ██████╗  █████╗ ███╗   ███╗███╗   ███╗██████╗██╗██╗  ██╗██████╗  ██████╗ ████████╗
@@ -17,12 +17,28 @@
 [![Telegram Bot API](https://img.shields.io/badge/Telegram-Bot%20API-blue.svg)](https://core.telegram.org/bots/api)
 [![Node.js Engine](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
 [![Build Status](https://img.shields.io/badge/Tests-100%25%20PASS-success.svg)](./test/testAll.js)
+[![AstrBot Engine](https://img.shields.io/badge/AI%20Core-AstrBot%20Agentic-purple.svg)](./system/ai-core.js)
 
-**GrammChatBot** is an elite Node.js bot framework that provides a **1-to-1 API Adapter Port** of [Goatbot-V2](https://github.com/lazyneoaz/Goatbot-V2.git) from Facebook Messenger (FCA) to Telegram (TCA).
+**GrammChatBot** is an elite Node.js bot framework providing a **1-to-1 API Adapter Port** of [Goatbot-V2](https://github.com/lazyneoaz/Goatbot-V2.git) from Facebook Messenger (FCA) to Telegram (TCA), supercharged with **AstrBot-inspired Agentic AI Capabilities**.
 
-By utilizing the built-in **FCA to TCA Adapter Layer** ([`system/api-adapter.js`](./system/api-adapter.js)), existing Goatbot V2 Facebook commands using `api.sendMessage()`, `event.threadID`, and `event.senderID` run natively on Telegram **without rewriting command logic**!
+By utilizing the built-in **FCA to TCA Adapter Layer** ([`system/api-adapter.js`](./system/api-adapter.js)) and **Agentic AI Core** ([`system/ai-core.js`](./system/ai-core.js)), existing Goatbot V2 Facebook commands using `api.sendMessage()`, `event.threadID`, and `event.senderID` run natively on Telegram alongside autonomous multi-LLM Agentic AI workflows!
 
 </div>
+
+---
+
+## 🤖 AstrBot-Inspired AI & Agent Capabilities
+
+GrammChatBot includes a centralized Agentic AI Brain ([`system/ai-core.js`](./system/ai-core.js)):
+
+1. **Multi-Provider LLM Routing**: Dynamically switch between **OpenAI** (`gpt-4o-mini`), **Google Gemini** (`gemini-1.5-flash`), **Anthropic Claude** (`claude-3-haiku`), **DeepSeek** (`deepseek-chat`), and local **Ollama** (`llama3`).
+2. **Autonomous Tool Use (Agentic AI)**: LLM autonomously executes tools:
+   - 🌐 **Web Search Tool**: Live query retrieval via DuckDuckGo.
+   - 💻 **Code Interpreter Sandbox**: Safe JavaScript math & algorithm evaluation.
+   - ⏱ **Task Scheduler**: Cron & reminder scheduling.
+3. **Multimodal (Vision & Audio)**: Image understanding and Speech-to-Text capabilities.
+4. **Long-Term Memory & Persona System**: Conversation history memory compression with custom System Prompt Personas.
+5. **Knowledge Base (RAG)**: In-memory vector store & retrieval-augmented generation for indexed documents.
 
 ---
 
@@ -34,17 +50,14 @@ By utilizing the built-in **FCA to TCA Adapter Layer** ([`system/api-adapter.js`
 
 </div>
 
-GrammChatBot features built-in modular AI Image Commands designed for memory-efficient streaming:
-
-- **`/image <prompt>` (`/dalle`)**: Generates high-definition AI digital art directly from text prompts.
-- **`/edit <style>` (`/filter`)**: Applies AI transformations and stylistic filters to replied photos.
+- **`/image <prompt>` (`/dalle`)**: Generates high-definition AI digital art from text prompts.
+- **`/edit <style>` (`/filter`)**: Applies AI transformations to replied photos.
 - **`/upscale` (`/4k`, `/hd`)**: Enhances image quality to 4K resolution.
 - **`/removebg` (`/nobg`)**: Removes backgrounds and exports transparent PNGs.
-- **⚡ Stream Optimization**: Media is streamed directly to Telegram using `ctx.replyWithPhoto({ source: response.data })`, eliminating large RAM buffers or disk overhead.
 
 ---
 
-## 📊 Express Web Analytics Dashboard
+## 📊 Express Web Dashboard & AI Control Panel
 
 <div align="center">
 
@@ -54,9 +67,9 @@ GrammChatBot features built-in modular AI Image Commands designed for memory-eff
 
 The integrated Express web server serves a live management dashboard on `process.env.PORT` (`http://localhost:5000`):
 
-- **Real-Time Monitoring**: Displays polling status, active token index, total tokens, uptime, and memory usage.
-- **Uptime Keep-Alive**: Includes `GET /` and `GET /health` 200 OK endpoints for UptimeRobot monitoring.
-- **Auto-Cleanup Engine**: Runs a 30-minute cron job clearing `/cache` directories and triggering Node garbage collection (`--expose-gc --max-old-space-size=400`).
+- **System Stats Panel**: Polling status, active token index, total tokens, uptime, and RAM usage.
+- **AI Control Panel**: Interactive UI to switch LLM Provider (OpenAI, Gemini, Claude, DeepSeek, Ollama), update System Prompt Persona, and toggle Tool Execution (Web Search, Code Sandbox).
+- **Uptime Keep-Alive**: `GET /` and `GET /health` 200 OK endpoints for UptimeRobot monitoring.
 
 ---
 
@@ -85,13 +98,14 @@ GrammChatBot/
 │   ├── banner.jpg              # Cute Anime Girl Mascot Header
 │   ├── ai_demo.jpg             # AI Image Tools Showcase Banner
 │   └── dashboard_preview.jpg   # Express Web Analytics Dashboard Mockup
-├── index.js                    # Main process entry launcher
+├── index.js                    # Main process entry launcher & dashboard
 ├── Goat.js                     # Core bot framework orchestrator
 ├── bot.js                      # Telegram event listener & router
 ├── config.json                 # Bot tokens, developer ID & permission lists
-├── package.json                # Project dependencies (grammy, express, etc.)
+├── package.json                # Project dependencies (grammy, openai, @google/genai, etc.)
 ├── system/
-│   └── api-adapter.js          # Core FCA-to-TCA API Wrapper Adapter
+│   ├── api-adapter.js          # Core FCA-to-TCA API Wrapper Adapter
+│   └── ai-core.js              # AstrBot-inspired Agentic AI Engine (Multi-LLM, RAG, Tools)
 ├── includes/
 │   ├── handleReply.js          # System listener for onReply
 │   ├── handleReaction.js       # System listener for onReaction
@@ -103,15 +117,16 @@ GrammChatBot/
 │   └── cron/
 │       └── autoCleanup.js      # 30-minute cache & memory cleanup cron job
 ├── dashboard/                  # Express.js Web Dashboard
-│   ├── app.js                  # Express web server & statistics routes
+│   ├── app.js                  # Express web server & AI Control Panel routes
 │   └── views/
-│       └── stats.eta           # Real-time HTML stats dashboard template
+│       └── stats.eta           # Real-time HTML stats & AI control panel template
 ├── utils/
 │   └── levenshtein.js          # Levenshtein distance typo suggestion engine
 ├── test/
 │   └── testAll.js              # Comprehensive automated test suite (100% Pass)
 └── scripts/
     └── cmds/                   # Modular commands folder
+        ├── ai-chat.js          # AstrBot AI Agent command (/ai /ask) in Goatbot syntax
         ├── example.js          # FCA-syntax command test (/examplecmd)
         ├── newcommand.eg.js    # Template command file
         ├── eval.js             # Level 4 Developer JS evaluator
@@ -128,68 +143,40 @@ GrammChatBot/
 
 ---
 
-## ⚙ Configuration (`config.json`)
-
-Configure your Telegram Bot Tokens, Developer ID, Admin IDs, and Premium IDs in `config.json`:
-
-```json
-{
-  "telegramTokens": [
-    "7123456789:AAEF... (Primary Bot Token from @BotFather)",
-    "7987654321:AABX... (Backup Bot Token 1)",
-    "7555555555:AACC... (Backup Bot Token 2)"
-  ],
-  "tokenRotation": {
-    "autoRotateOnRateLimit": true,
-    "retryAttempts": 3,
-    "cooldownMs": 60000
-  },
-  "prefix": "/",
-  "noPrefix": true,
-  "adminBot": [
-    "123456789"
-  ],
-  "premiumUsers": [
-    "123456789"
-  ],
-  "devUsers": [
-    "YOUR_TELEGRAM_USER_ID"
-  ],
-  "dashBoard": {
-    "enable": true,
-    "port": 5000
-  }
-}
-```
-
----
-
 ## 💻 Developer Guide: Writing Commands in Native FCA Syntax
 
 Thanks to [`system/api-adapter.js`](./system/api-adapter.js), you can write commands using the exact original Goatbot-V2 Facebook syntax:
 
 ```javascript
+const aiCore = require("../../system/ai-core.js");
+
 module.exports = {
   config: {
-    name: "hello",
-    aliases: ["hi"],
-    version: "2.0",
+    name: "ai",
+    aliases: ["ask"],
+    version: "2.1",
     author: "frnAlt & Gtajisan",
-    countDown: 2,
+    countDown: 3,
     role: 0,
-    description: { en: "Say hello using classic Goatbot FCA syntax" },
-    category: "utility"
+    description: { en: "Chat with Agentic AI Core" },
+    category: "ai-agent"
   },
 
   // Classic Goatbot V2 signature
   onStart: async function ({ api, event, args, message, getLang }) {
-    // api.sendMessage maps internally to Telegram's sendMessage!
+    const prompt = args.join(" ");
+    if (!prompt) return message.reply("Please ask a question!");
+
+    const response = await aiCore.generateCompletion({
+      prompt,
+      contextId: `${event.threadID}_${event.senderID}`
+    });
+
     api.sendMessage(
-      `Hello! Your Telegram ID is ${event.senderID} and Chat ID is ${event.threadID}.`,
+      `🤖 [${aiCore.getProvider().toUpperCase()}]\n\n${response}`,
       event.threadID,
       (err, info) => {
-        // api.setMessageReaction maps to Telegram message reactions!
-        api.setMessageReaction("👋", event.messageID, event.threadID);
+        api.setMessageReaction("🧠", event.messageID, event.threadID);
       },
       event.messageID
     );
@@ -250,5 +237,6 @@ pm2 startup
 ## 📜 License & Credits
 
 - **Original Architecture**: [Goat-Bot-V2](https://github.com/ntkhang03/Goat-Bot-V2) by NTKhang & Modded by frnAlt & Gtajisan.
+- **AI Engine**: AstrBot-inspired Agentic AI Engine.
 - **Telegram Adapter Port**: GrammChatBot by frnAlt & Gtajisan.
 - **License**: MIT
