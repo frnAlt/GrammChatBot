@@ -1,6 +1,6 @@
 <div align="center">
 
-![GrammChatBot Cute Normal Anime Girl Mascot](./images/banner.jpg)
+![GrammChatBot Anime Girl Mascot](./images/banner.jpg)
 
 # ⚡ GrammChatBot - FCA to TCA Framework Port with AstrBot AI Engine
 
@@ -27,18 +27,31 @@ By utilizing the built-in **FCA to TCA Adapter Layer** ([`system/api-adapter.js`
 
 ---
 
-## 🤖 AstrBot-Inspired AI & Agent Capabilities
+## 🌟 Core Agentic Capabilities & Ecosystem
 
-GrammChatBot includes a centralized Agentic AI Brain ([`system/ai-core.js`](./system/ai-core.js)):
+<div align="center">
 
-1. **Multi-Provider LLM Routing**: Dynamically switch between **OpenAI** (`gpt-4o-mini`), **Google Gemini** (`gemini-1.5-flash`), **Anthropic Claude** (`claude-3-haiku`), **DeepSeek** (`deepseek-chat`), and local **Ollama** (`llama3`).
-2. **Autonomous Tool Use (Agentic AI)**: LLM autonomously executes tools:
-   - 🌐 **Web Search Tool**: Live query retrieval via DuckDuckGo.
-   - 💻 **Code Interpreter Sandbox**: Safe JavaScript math & algorithm evaluation.
-   - ⏱ **Task Scheduler**: Cron & reminder scheduling.
-3. **Multimodal (Vision & Audio)**: Image understanding and Speech-to-Text capabilities.
-4. **Long-Term Memory & Persona System**: Conversation history memory compression with custom System Prompt Personas.
-5. **Knowledge Base (RAG)**: In-memory vector store & retrieval-augmented generation for indexed documents.
+![GrammChatBot Agentic Features Showcase](./images/agentic_features.jpg)
+
+</div>
+
+### 💙 1. Role-playing & Emotional Companionship
+- **Character Persona Presets**: Customizable system prompts & emotional companion personas.
+- **Local & Cloud RP Engines**: Supports SillyTavern character cards, Ollama local roleplay, and OpenAI/Gemini personas.
+
+### ✨ 2. Proactive Agent
+- **Proactive Notifications**: Event-triggered scheduled reminders, background cron tasks, and group alerts.
+- **Contextual Engagement**: Monitors thread activity to provide timely suggestions and automated assistance.
+
+### 🚀 3. General Agentic Capabilities
+- **Multi-Provider LLM Routing**: 11+ supported model services (**OpenAI**, **Gemini**, **Claude**, **DeepSeek**, **Groq**, **Ollama**, **Moonshot Kimi**, **GLM**, **Qwen**, **OneAPI**).
+- **Autonomous Tool Execution**: LLM function calling for **Web Search**, **Code Interpreter Sandbox**, and **Task Scheduler**.
+- **Multimodal (Vision & Audio)**: Image recognition & Speech-to-Text (Whisper).
+- **RAG Knowledge Base**: Retrieval-Augmented Generation for indexing documents and PDF context.
+
+### 🧩 4. 1000+ Community Plugins Collection
+- **AstrBot Plugins Collection Marketplace**: Direct integration with [`AstrBotDevs/AstrBot_Plugins_Collection`](https://github.com/AstrBotDevs/AstrBot_Plugins_Collection.git).
+- **Modular Star Plugins System**: Dynamic plugin loading, tool registration (`register_tool`), and Web UI marketplace management.
 
 ---
 
@@ -68,25 +81,8 @@ GrammChatBot includes a centralized Agentic AI Brain ([`system/ai-core.js`](./sy
 The integrated Express web server serves a live management dashboard on `process.env.PORT` (`http://localhost:5000`):
 
 - **System Stats Panel**: Polling status, active token index, total tokens, uptime, and RAM usage.
-- **AI Control Panel**: Interactive UI to switch LLM Provider (OpenAI, Gemini, Claude, DeepSeek, Ollama), update System Prompt Persona, and toggle Tool Execution (Web Search, Code Sandbox).
-- **Uptime Keep-Alive**: `GET /` and `GET /health` 200 OK endpoints for UptimeRobot monitoring.
-
----
-
-## 🔥 Key Features
-
-- **FCA to TCA Adapter Layer**: Intercepts Telegram updates and maps them to standard Facebook Chat API (`api`) and event (`event`) objects.
-- **Multi-Token Failover**: Array of Telegram Bot tokens in `config.json`. Automatically switches tokens on `429 Too Many Requests` or blocks, and alerts the Developer ID.
-- **5-Level Role Permission Matrix**:
-  - **Level 0 (User)**: Basic commands.
-  - **Level 1 (Premium User)**: Premium commands & higher limits (`/admin premium add`).
-  - **Level 2 (Group Admin)**: Group management (`ctx.getChatMember`).
-  - **Level 3 (Bot Admin)**: Bot management (`adminBot` in `config.json`).
-  - **Level 4 (Developer)**: Master access (`devUsers`). Required for `/shell` and `/eval`.
-- **Developer Command Suite**:
-  - `/eval`: Evaluates raw JavaScript directly in runtime (Level 4 Developer Only).
-  - `/shell`: Executes host terminal commands (Level 4 Developer Only).
-- **Smart Typo Suggestions**: Uses Levenshtein distance algorithm to find closest loaded commands (e.g. `/imgge` -> *"Command not found. Did you mean /image?"*).
+- **AI Control Panel**: Interactive UI to switch LLM Provider, update System Prompt Persona, and toggle Tool Execution.
+- **Plugins Marketplace**: Browse, install, and uninstall plugins from the AstrBot Plugins Collection.
 
 ---
 
@@ -96,16 +92,19 @@ The integrated Express web server serves a live management dashboard on `process
 GrammChatBot/
 ├── images/
 │   ├── banner.jpg              # Cute Anime Girl Mascot Header
+│   ├── agentic_features.jpg    # Core 4 Pillars Agentic Features Showcase
 │   ├── ai_demo.jpg             # AI Image Tools Showcase Banner
 │   └── dashboard_preview.jpg   # Express Web Analytics Dashboard Mockup
 ├── index.js                    # Main process entry launcher & dashboard
 ├── Goat.js                     # Core bot framework orchestrator
 ├── bot.js                      # Telegram event listener & router
 ├── config.json                 # Bot tokens, developer ID & permission lists
-├── package.json                # Project dependencies (grammy, openai, @google/genai, etc.)
+├── package.json                # Project dependencies
 ├── system/
 │   ├── api-adapter.js          # Core FCA-to-TCA API Wrapper Adapter
-│   └── ai-core.js              # AstrBot-inspired Agentic AI Engine (Multi-LLM, RAG, Tools)
+│   ├── ai-core.js              # AstrBot-inspired Agentic AI Engine (Multi-LLM, RAG, Tools)
+│   ├── astrbot-api.js          # AstrBot API Specs (@filter, MessageChain, Star Tool Registry)
+│   └── astrbot-plugins.js      # AstrBot Plugins Collection Marketplace & Manager
 ├── includes/
 │   ├── handleReply.js          # System listener for onReply
 │   ├── handleReaction.js       # System listener for onReaction
@@ -117,7 +116,7 @@ GrammChatBot/
 │   └── cron/
 │       └── autoCleanup.js      # 30-minute cache & memory cleanup cron job
 ├── dashboard/                  # Express.js Web Dashboard
-│   ├── app.js                  # Express web server & AI Control Panel routes
+│   ├── app.js                  # Express web server & AstrBot APIs
 │   └── views/
 │       └── stats.eta           # Real-time HTML stats & AI control panel template
 ├── utils/
@@ -237,6 +236,6 @@ pm2 startup
 ## 📜 License & Credits
 
 - **Original Architecture**: [Goat-Bot-V2](https://github.com/ntkhang03/Goat-Bot-V2) by NTKhang & Modded by frnAlt & Gtajisan.
-- **AI Engine**: AstrBot-inspired Agentic AI Engine.
+- **AI Engine**: AstrBot-inspired Agentic AI Engine & Plugins Collection.
 - **Telegram Adapter Port**: GrammChatBot by frnAlt & Gtajisan.
 - **License**: MIT
