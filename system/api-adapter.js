@@ -15,6 +15,36 @@ const path = require("path");
 const log = require("../logger/log.js");
 
 /**
+ * Detects the media type (video, audio, photo, document) of an attachment input.
+ * 
+ * @param {any} attachmentInput - Stream, path string, URL, or payload object
+ * @returns {string} "video" | "audio" | "photo" | "document"
+ */
+function detectMediaType(attachmentInput) {
+        if (!attachmentInput) return "document";
+
+        if (typeof attachmentInput === "object" && attachmentInput !== null) {
+                if (attachmentInput.type === "video" || attachmentInput.type === "audio" || attachmentInput.type === "photo") {
+                        return attachmentInput.type;
+                }
+        }
+
+        const targetStr = (typeof attachmentInput === "string" ? attachmentInput : (attachmentInput.path || "")).toLowerCase();
+
+        if (/\.(mp4|mov|mkv|webm|avi|flv)$/i.test(targetStr)) {
+                return "video";
+        }
+        if (/\.(mp3|m4a|wav|ogg|aac|flac|opus)$/i.test(targetStr)) {
+                return "audio";
+        }
+        if (/\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(targetStr)) {
+                return "photo";
+        }
+
+        return "photo"; // Default fallback for images/attachments
+}
+
+/**
  * Creates a stream-based or URL-based InputFile for grammY media methods.
  * Ensures streams are used for file paths to minimize memory consumption.
  * 
@@ -53,6 +83,7 @@ function createFcaApiWrapper(ctx) {
         return {
                 /**
                  * Send message wrapper supporting string messages, caption objects, and attachments.
+                 * Supports Photo, Video, Audio/Voice, and Document formats like GoatBot V2.
                  * 
                  * @param {string|Object} msg - Text string or payload object containing body/attachment
                  * @param {string|number} threadID - Target Telegram chat/channel ID
@@ -79,19 +110,66 @@ function createFcaApiWrapper(ctx) {
                                         const attachments = msg.attachment ? (Array.isArray(msg.attachment) ? msg.attachment : [msg.attachment]) : [];
 
                                         if (attachments.length > 0) {
-                                                const inputFile = createInputFile(attachments[0]);
-                                                const res = await botApi.sendPhoto(targetThread, inputFile, {
-                                                        caption: text,
-                                                        reply_to_message_id: replyId
-                                                }).catch(async () => {
-                                                        return await botApi.sendDocument(targetThread, inputFile, {
-                                                                caption: text,
-                                                                reply_to_message_id: replyId
-                                                        });
-                                                });
-                                                sentMsgInfo = { messageID: res.message_id, threadID: targetThread, timestamp: res.date * 1000 };
+                                                for (const att of attachments) {
+                                                        const inputFile = createInputFile(att);
+                                                        const mediaType = detectMediaType(att);
+                                                        let res = null;
+
+                                                        if (mediaType === "video") {
+                                                                res = await botApi.sendVideo(targetThread, inputFile, {
+                                                                        caption: text,
+                                                                        reply_to_message_id: replyId,
+                                                                        parse_mode: "HTML"
+                                                                }).catch(async () => {
+                                                                        return await botApi.sendDocument(targetThread, inputFile, {
+                                                                                caption: text,
+                                                                                reply_to_message_id: replyId
+                                                                        });
+                                                                });
+                                                        } else if (mediaType === "audio") {
+                                                                res = await botApi.sendAudio(targetThread, inputFile, {
+                                                                        caption: text,
+                                                                        reply_to_message_id: replyId,
+                                                                        parse_mode: "HTML"
+                                                                }).catch(async () => {
+                                                                        return await botApi.sendVoice(targetThread, inputFile, {
+                                                                                caption: text,
+                                                                                reply_to_message_id: replyId
+                                                                        });
+                                                                }).catch(async () => {
+                                                                        return await botApi.sendDocument(targetThread, inputFile, {
+                                                                                caption: text,
+                                                                                reply_to_message_id: replyId
+                                                                        });
+                                                                });
+                                                        } else if (mediaType === "photo") {
+                                                                res = await botApi.sendPhoto(targetThread, inputFile, {
+                                                                        caption: text,
+                                                                        reply_to_message_id: replyId,
+                                                                        parse_mode: "HTML"
+                                                                }).catch(async () => {
+                                                                        return await botApi.sendDocument(targetThread, inputFile, {
+                                                                                caption: text,
+                                                                                reply_to_message_id: replyId
+                                                                        });
+                                                                });
+                                                        } else {
+                                                                res = await botApi.sendDocument(targetThread, inputFile, {
+                                                                        caption: text,
+                                                                        reply_to_message_id: replyId,
+                                                                        parse_mode: "HTML"
+                                                                }).catch(async () => {
+                                                                        return await botApi.sendPhoto(targetThread, inputFile, {
+                                                                                caption: text,
+                                                                                reply_to_message_id: replyId
+                                                                        });
+                                                                });
+                                                        }
+                                                        sentMsgInfo = { messageID: res.message_id, threadID: targetThread, timestamp: res.date * 1000 };
+                                                }
                                         } else if (text) {
-                                                const res = await botApi.sendMessage(targetThread, text, { reply_to_message_id: replyId });
+                                                const res = await botApi.sendMessage(targetThread, text, { reply_to_message_id: replyId, parse_mode: "HTML" })
+                                                        .catch(() => botApi.sendMessage(targetThread, text, { reply_to_message_id: replyId }));
                                                 sentMsgInfo = { messageID: res.message_id, threadID: targetThread, timestamp: res.date * 1000 };
                                         }
                                 }
@@ -135,19 +213,35 @@ function createFcaApiWrapper(ctx) {
                 },
 
                 /**
-                 * Fetches basic user information for a given user ID.
+                 * Fetches user details including name, username, and profile picture avatar.
                  */
                 getUserInfo: async function (userID, callback) {
                         try {
                                 const targetUser = Array.isArray(userID) ? userID[0] : userID;
                                 const chat = await botApi.getChat(targetUser);
+
+                                let avatarUrl = "";
+                                try {
+                                        if (botApi.getUserProfilePhotos) {
+                                                const photos = await botApi.getUserProfilePhotos(targetUser, { limit: 1 });
+                                                if (photos && photos.total_count > 0 && photos.photos[0]?.length > 0) {
+                                                        const fileId = photos.photos[0][photos.photos[0].length - 1].file_id;
+                                                        const file = await botApi.getFile(fileId);
+                                                        avatarUrl = `https://api.telegram.org/file/bot${botApi.token}/${file.file_path}`;
+                                                }
+                                        }
+                                } catch (e) {}
+
+                                const name = `${chat.first_name || ""} ${chat.last_name || ""}`.trim() || chat.username || "User";
                                 const result = {
                                         [targetUser]: {
-                                                name: `${chat.first_name || ""} ${chat.last_name || ""}`.trim() || chat.username || "User",
+                                                name,
                                                 firstName: chat.first_name || "",
                                                 lastName: chat.last_name || "",
                                                 username: chat.username || "",
-                                                profileUrl: chat.username ? `https://t.me/${chat.username}` : ""
+                                                profileUrl: chat.username ? `https://t.me/${chat.username}` : "",
+                                                avatar: avatarUrl || `https://api.dicebear.com/7.x/bottts/png?seed=${targetUser}`,
+                                                thumbUrl: avatarUrl || `https://graph.facebook.com/${targetUser}/picture?width=720&height=720`
                                         }
                                 };
                                 if (typeof callback === "function") callback(null, result);

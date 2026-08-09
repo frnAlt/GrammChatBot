@@ -31,25 +31,27 @@ module.exports = {
     let tempFilePath; 
 
     try {
-      // The API uses 'p' for prompt
-      const fullApiUrl = `${API_ENDPOINT}?p=${encodeURIComponent(prompt.trim())}`;
-      
-      const imageDownloadResponse = await axios.get(fullApiUrl, {
-          responseType: 'stream',
-          timeout: 45000 
-      });
-
-      if (imageDownloadResponse.status !== 200) {
-           throw new Error(`API request failed with status code ${imageDownloadResponse.status}.`);
-      }
-      
       const cacheDir = path.join(__dirname, 'cache');
       if (!fs.existsSync(cacheDir)) {
           await fs.mkdirp(cacheDir); 
       }
-      
       tempFilePath = path.join(cacheDir, `artv1_output_${Date.now()}.png`);
-      
+
+      let imageDownloadResponse;
+      try {
+        const fullApiUrl = `${API_ENDPOINT}?p=${encodeURIComponent(prompt.trim())}`;
+        imageDownloadResponse = await axios.get(fullApiUrl, {
+            responseType: 'stream',
+            timeout: 15000 
+        });
+      } catch (err) {
+        const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
+        imageDownloadResponse = await axios.get(fallbackUrl, {
+            responseType: 'stream',
+            timeout: 30000
+        });
+      }
+
       const writer = fs.createWriteStream(tempFilePath);
       imageDownloadResponse.data.pipe(writer);
 
@@ -63,7 +65,7 @@ module.exports = {
 
       message.reaction("✅", event.messageID);
       await message.reply({
-        body: `ArtV1 image generated ✨`,
+        body: `✨ <b>Art Image Generated</b>\nPrompt: ${prompt}`,
         attachment: fs.createReadStream(tempFilePath)
       });
 
