@@ -1,0 +1,103 @@
+{
+  "telegramTokens": [
+    "YOUR_TELEGRAM_BOT_TOKEN_1",
+    "YOUR_TELEGRAM_BOT_TOKEN_2"
+  ],
+  "tokenRotation": {
+    "autoRotateOnRateLimit": true,
+    "retryAttempts": 3,
+    "cooldownMs": 60000
+  },
+  "language": "en",
+  "notesLanguage": "change to your language with ISO 639-1 code, available languages: vi (Vietnamese), en (English)",
+  "nickNameBot": "GoatBot Telegram",
+  "prefix": "/",
+  "noPrefix": true,
+  "noPrefixNotes": "When true, Bot Admins (role 2) and Developers (role 4) can run commands without the prefix",
+  "adminOnly": {
+    "enable": false,
+    "ignoreCommand": []
+  },
+  "adminBot": [
+    "123456789"
+  ],
+  "premiumUsers": [
+    "123456789"
+  ],
+  "devUsers": [
+    "123456789"
+  ],
+  "notes_premiumUsers": "List of Telegram User IDs with premium access (role 3)",
+  "notes_devUsers": "List of Telegram Developer IDs with full access (role 4 - required for /shell and /eval)",
+  "whiteListMode": {
+    "enable": false,
+    "whiteListIds": [
+      "123456789"
+    ]
+  },
+  "whiteListModeThread": {
+    "enable": false,
+    "whiteListThreadIds": []
+  },
+  "database": {
+    "type": "sqlite",
+    "uriMongodb": "",
+    "autoSyncWhenStart": false,
+    "autoRefreshThreadInfoFirstTime": true
+  },
+  "timeZone": "Asia/Dhaka",
+  "dashBoard": {
+    "enable": true,
+    "expireVerifyCode": 300000,
+    "port": 5000
+  },
+  "serverUptime": {
+    "enable": false,
+    "port": 5000,
+    "socket": {
+      "enable": false,
+      "channelName": "uptime",
+      "verifyToken": "8126831f37f9cb8d6ba35489bac1ac619b114178e9617613ae8277ed4328fa3f"
+    }
+  },
+  "spamProtection": {
+    "commandThreshold": 8,
+    "timeWindow": 10,
+    "banDuration": 24
+  },
+  "autoCleanup": {
+    "enable": true,
+    "cronExpression": "*/30 * * * *",
+    "targetDirs": [
+      "./cache",
+      "./scripts/cmds/cache",
+      "./scripts/events/cache",
+      "./tmp"
+    ]
+  },
+  "autoRestart": {
+    "time": null
+  },
+  "autoUptime": {
+    "enable": true,
+    "timeInterval": 180,
+    "url": ""
+  },
+  "hideNotiMessage": {
+    "commandNotFound": false,
+    "adminOnly": false,
+    "threadBanned": false,
+    "userBanned": false,
+    "needRoleToUseCmd": false,
+    "needRoleToUseCmdOnReply": false,
+    "needRoleToUseCmdOnReaction": false
+  },
+  "logEvents": {
+    "disableAll": false,
+    "message": true,
+    "message_reaction": true,
+    "message_unsend": true,
+    "message_reply": true,
+    "event": true
+  }
+}

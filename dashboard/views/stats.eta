@@ -1,0 +1,53 @@
+<%~ includeFile("partials/header", { user: user }); %>
+<%~ includeFile("partials/message.eta"); %>
+<%~ includeFile("partials/title.eta", {
+	icon: "fas fa-robot",
+	title: "Telegram Bot Stats"
+}); %>
+
+<section class="post my-4">
+  <div class="container">
+    <table class="table table-borderless">
+      <tbody>
+        <tr class="text-start">
+          <td><i class="fab fa-telegram"></i> Bot Username</td>
+          <td><strong>@<%= botUsername %></strong> (ID: <%= botId %>)</td>
+        </tr>
+        <tr class="text-start">
+          <td><i class="fas fa-signal"></i> Polling Status</td>
+          <td><span class="badge bg-<%= pollingStatus === 'Active' ? 'success' : 'danger' %>"><%= pollingStatus %></span></td>
+        </tr>
+        <tr class="text-start">
+          <td><i class="fas fa-key"></i> Active Token Index</td>
+          <td>Index <%= activeTokenIndex %> of <%= totalTokens %> Token(s) (Rotations: <%= rotationCount %>)</td>
+        </tr>
+        <tr class="text-start">
+          <td><i class="fas fa-code"></i> Commands & Events</td>
+          <td><%= totalCommands %> Commands / <%= totalEvents %> Events</td>
+        </tr>
+        <tr class="text-start">
+          <td><i class="fas fa-hashtag"></i> Prefix</td>
+          <td><code><%= prefix %></code></td>
+        </tr>
+        <tr class="text-start">
+          <td><i class="fa fa-clock"></i> Uptime</td>
+          <td id="uptime"><%= uptime %></td>
+        </tr>
+        <tr class="text-start">
+          <td><i class="fa-solid fa-memory"></i> Memory (Heap / RSS)</td>
+          <td><%= heapUsedMB %> MB / <%= rssMB %> MB (Total: <%= heapTotalMB %> MB)</td>
+        </tr>
+        <tr class="text-start">
+          <td><i class="fab fa-node-js"></i> Node.js Version</td>
+          <td><%= process.version %></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script type="text/javascript">
+  function cvt(e,t="s",o="m ",n="h ",r="d "){const u=Math.floor(e/1e3%60),i=Math.floor(e/1e3/60%60),l=Math.floor(e/1e3/60/60%24),f=Math.floor(e/1e3/60/60/24);return`${f?f+r:""}${l?l+n:""}${i?i+o:""}${u}${t}`}let countDownDate=Number("<%=uptimeSecond%>");setInterval((function(){countDownDate+=1,document.getElementById("uptime").innerHTML=cvt(1e3*countDownDate)}),1e3);
+</script>
+
+<%~ includeFile("partials/footer") %>
