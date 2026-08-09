@@ -1,6 +1,6 @@
 /**
  * Express.js Web Dashboard for GrammChatBot
- * Includes Real-Time Stats Panel, FCA-to-TCA status, and AstrBot AI & Plugin Management APIs
+ * Includes Real-Time Stats Panel, FCA-to-TCA status, and AstrBot AI & Plugin Collection Management APIs
  */
 
 const express = require("express");
@@ -17,6 +17,7 @@ const path = require("path");
 
 const aiCore = require("../system/ai-core.js");
 const astrbotApi = require("../system/astrbot-api.js");
+const astrbotPlugins = require("../system/astrbot-plugins.js");
 const server = http.createServer(app);
 
 module.exports = async function startDashboard(tokenManager) {
@@ -69,7 +70,8 @@ module.exports = async function startDashboard(tokenManager) {
                         prefix: config.prefix || "/",
                         uptime: uptimeFormatted,
                         uptimeSecond: uptimeSeconds,
-                        aiState: aiCore.state
+                        aiState: aiCore.state,
+                        installedPlugins: astrbotPlugins.getInstalledPlugins()
                 });
         });
 
@@ -104,6 +106,37 @@ module.exports = async function startDashboard(tokenManager) {
                         model: aiCore.state.model,
                         providers: ["openai", "gemini", "claude", "deepseek", "ollama"]
                 });
+        });
+
+        // AstrBot API Endpoint: Get Plugins Collection Marketplace
+        app.get("/api/astrbot/plugins/marketplace", async (req, res) => {
+                const marketPlugins = await astrbotPlugins.fetchMarketplacePlugins();
+                const installed = astrbotPlugins.getInstalledPlugins();
+                res.json({
+                        status: "success",
+                        installed,
+                        marketplace: marketPlugins
+                });
+        });
+
+        // AstrBot API Endpoint: Install Plugin from Collection
+        app.post("/api/astrbot/plugins/install", (req, res) => {
+                const { name, author, description, version } = req.body;
+                if (!name) {
+                        return res.status(400).json({ status: "error", message: "Plugin name is required." });
+                }
+                const result = astrbotPlugins.installPlugin({ name, author: author || "Community", description: description || "", version: version || "1.0.0" });
+                res.json(result);
+        });
+
+        // AstrBot API Endpoint: Uninstall Plugin
+        app.post("/api/astrbot/plugins/uninstall", (req, res) => {
+                const { name } = req.body;
+                if (!name) {
+                        return res.status(400).json({ status: "error", message: "Plugin name is required." });
+                }
+                const result = astrbotPlugins.uninstallPlugin(name);
+                res.json(result);
         });
 
         // AstrBot API Endpoint: Get Configuration
