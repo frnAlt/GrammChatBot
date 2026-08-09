@@ -1,6 +1,6 @@
 <div align="center">
 
-![GrammChatBot Anime Girl Mascot Banner](./images/banner.jpg)
+![GrammChatBot Cute Normal Anime Girl Mascot](./images/banner.jpg)
 
 # ⚡ GrammChatBot - FCA to TCA Framework Port (GoatBot V2)
 
@@ -50,7 +50,7 @@ By utilizing the built-in **FCA to TCA Adapter Layer** ([`system/api-adapter.js`
 ```
 GrammChatBot/
 ├── images/
-│   └── banner.jpg              # Anime Tech Girl Mascot Banner Header
+│   └── banner.jpg              # Normal Cute Anime Girl Mascot Banner
 ├── index.js                    # Main process entry launcher
 ├── Goat.js                     # Core bot framework orchestrator
 ├── bot.js                      # Telegram event listener & router
