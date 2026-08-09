@@ -1,3 +1,7 @@
+<div align="center">
+
+![GrammChatBot Anime Girl Mascot Banner](./images/banner.jpg)
+
 # ⚡ GrammChatBot - FCA to TCA Framework Port (GoatBot V2)
 
 ```
@@ -5,13 +9,19 @@
   ██╔════╝ ██╔══██╗██╔══██╗████╗ ████║████╗ ████║██╔════╝██║██║  ██║██╔══██╗██╔═══██╗╚══██╔══╝
   ██║  ███╗██████╔╝███████║██╔████╔██║██╔████╔██║██║     ██║███████║██████╔╝██║   ██║   ██║   
   ██║   ██║██╔══██╗██╔══██║██║╚██╔╝██║██║╚██╔╝██║██║     ██║██╔══██║██╔══██╗██║   ██║   ██║   
-  ╚██████╔╝██║  ██║██║  ██║██║ ╚═╝ ██║██║ ╚═╝ ██║╚██████╗██║██║  ██║██████╔╝╚██████╔╝   ██║   
+  ╚██████╔╝██║  ██║██║  ██║██║ ╚═╝ ██║██║ ╚═╝ ██║╚██████╗██║██║  ██║██████╔╝╚██████╔╝    ██║   
    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝     ╚═╝ ╚═════╝╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝    ╚═╝   
 ```
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Telegram Bot API](https://img.shields.io/badge/Telegram-Bot%20API-blue.svg)](https://core.telegram.org/bots/api)
+[![Node.js Engine](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
+
 **GrammChatBot** is an elite Node.js bot framework that provides a **1-to-1 API Adapter Port** of [Goatbot-V2](https://github.com/lazyneoaz/Goatbot-V2.git) from Facebook Messenger (FCA) to Telegram (TCA).
 
-By utilizing the built-in **FCA to TCA Adapter Layer** ([`system/api-adapter.js`](file:///home/ffjisan804/GrammChatBot/system/api-adapter.js)), existing Goatbot V2 Facebook commands using `api.sendMessage()`, `event.threadID`, and `event.senderID` run natively on Telegram **without rewriting command logic**!
+By utilizing the built-in **FCA to TCA Adapter Layer** ([`system/api-adapter.js`](./system/api-adapter.js)), existing Goatbot V2 Facebook commands using `api.sendMessage()`, `event.threadID`, and `event.senderID` run natively on Telegram **without rewriting command logic**!
+
+</div>
 
 ---
 
@@ -21,7 +31,7 @@ By utilizing the built-in **FCA to TCA Adapter Layer** ([`system/api-adapter.js`
 - **Multi-Token Failover**: Array of Telegram Bot tokens in `config.json`. Automatically switches tokens on `429 Too Many Requests` or blocks, and alerts the Developer ID.
 - **5-Level Role Permission Matrix**:
   - **Level 0 (User)**: Basic commands.
-  - **Level 1 (Premium User)**: Premium commands & higher limits.
+  - **Level 1 (Premium User)**: Premium commands & higher limits (`/admin premium add`).
   - **Level 2 (Group Admin)**: Group management (`ctx.getChatMember`).
   - **Level 3 (Bot Admin)**: Bot management (`adminBot` in `config.json`).
   - **Level 4 (Developer)**: Master access (`devUsers`). Required for `/shell` and `/eval`.
@@ -39,6 +49,8 @@ By utilizing the built-in **FCA to TCA Adapter Layer** ([`system/api-adapter.js`
 
 ```
 GrammChatBot/
+├── images/
+│   └── banner.jpg              # Anime Tech Girl Mascot Banner Header
 ├── index.js                    # Main process entry launcher
 ├── Goat.js                     # Core bot framework orchestrator
 ├── bot.js                      # Telegram event listener & router
@@ -46,6 +58,10 @@ GrammChatBot/
 ├── package.json                # Project dependencies (grammy, express, etc.)
 ├── system/
 │   └── api-adapter.js          # Core FCA-to-TCA API Wrapper Adapter
+├── includes/
+│   ├── handleReply.js          # System listener for onReply
+│   ├── handleReaction.js       # System listener for onReaction
+│   └── handleEvent.js          # System listener for onEvent
 ├── bot/
 │   ├── telegram/
 │   │   ├── tokenManager.js     # Multi-token manager & rate-limit failover
@@ -58,6 +74,8 @@ GrammChatBot/
 │       └── stats.eta           # Real-time HTML stats dashboard template
 ├── utils/
 │   └── levenshtein.js          # Levenshtein distance typo suggestion engine
+├── test/
+│   └── testAll.js              # Comprehensive automated test suite (100% Pass)
 └── scripts/
     └── cmds/                   # Modular commands folder
         ├── example.js          # FCA-syntax command test (/examplecmd)
@@ -114,7 +132,7 @@ Configure your Telegram Bot Tokens, Developer ID, Admin IDs, and Premium IDs in 
 
 ## 💻 Developer Guide: Writing Commands in Native FCA Syntax
 
-Thanks to [`system/api-adapter.js`](file:///home/ffjisan804/GrammChatBot/system/api-adapter.js), you can write commands using the exact original Goatbot-V2 Facebook syntax:
+Thanks to [`system/api-adapter.js`](./system/api-adapter.js), you can write commands using the exact original Goatbot-V2 Facebook syntax:
 
 ```javascript
 module.exports = {
@@ -143,6 +161,21 @@ module.exports = {
     );
   }
 };
+```
+
+---
+
+## 🧪 Testing & Verification
+
+Run the comprehensive automated test suite:
+```bash
+node test/testAll.js
+```
+Expected Output:
+```
+==================================================
+📊 TEST RESULTS: 14 Passed, 0 Failed
+==================================================
 ```
 
 ---
