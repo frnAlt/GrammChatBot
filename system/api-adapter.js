@@ -1,11 +1,12 @@
 /**
- * FCA to TCA (Facebook Chat API to Telegram Chat API) Adapter Layer
+ * FCA to TCA API Adapter Layer
  * 
- * Intercepts Telegram's grammY update context (ctx) and constructs:
- * 1. An FCA-compatible `api` object (api.sendMessage, api.unsendMessage, api.getUserInfo, etc.)
- * 2. An FCA-compatible `event` object (event.threadID, event.senderID, event.body, etc.)
+ * Provides backwards compatibility for Facebook Chat API (FCA) command logic
+ * by translating incoming Telegram update context objects into classic FCA event 
+ * structures and proxying outgoing API calls to the Telegram Bot API (TCA).
  * 
- * This allows Goatbot-V2 Facebook commands to execute natively on Telegram without rewriting command files!
+ * @module system/api-adapter
+ * @author NTKhang & Modded for Telegram by frnAlt & Gtajisan
  */
 
 const { InputFile } = require("grammy");
@@ -14,10 +15,15 @@ const path = require("path");
 const log = require("../logger/log.js");
 
 /**
- * Creates stream-based InputFile for Telegram media sending
+ * Creates a stream-based or URL-based InputFile for grammY media methods.
+ * Ensures streams are used for file paths to minimize memory consumption.
+ * 
+ * @param {string|Buffer|Stream} mediaInput - Input file path, URL, buffer, or readable stream
+ * @returns {InputFile|null}
  */
 function createInputFile(mediaInput) {
         if (!mediaInput) return null;
+
         if (typeof mediaInput === "string") {
                 if (mediaInput.startsWith("http://") || mediaInput.startsWith("https://")) {
                         return new InputFile({ url: mediaInput });
@@ -27,30 +33,36 @@ function createInputFile(mediaInput) {
                 }
                 return new InputFile(mediaInput);
         }
-        if (Buffer.isBuffer(mediaInput)) {
+
+        if (Buffer.isBuffer(mediaInput) || typeof mediaInput.pipe === "function") {
                 return new InputFile(mediaInput);
         }
-        if (typeof mediaInput.pipe === "function") {
-                return new InputFile(mediaInput);
-        }
+
         return new InputFile(mediaInput);
 }
 
 /**
- * Creates FCA-compatible `api` object wrapping Telegram API (TCA)
+ * Constructs an FCA-compliant API wrapper object over the Telegram Bot API.
+ * 
+ * @param {import("grammy").Context} ctx - grammY update context
+ * @returns {Object} FCA api wrapper
  */
 function createFcaApiWrapper(ctx) {
         const botApi = ctx.api;
 
         return {
                 /**
-                 * api.sendMessage(msg, threadID, callback, messageID)
-                 * Supports text strings, body/attachment objects, streams, and reply targets.
+                 * Send message wrapper supporting string messages, caption objects, and attachments.
+                 * 
+                 * @param {string|Object} msg - Text string or payload object containing body/attachment
+                 * @param {string|number} threadID - Target Telegram chat/channel ID
+                 * @param {Function} [callback] - Optional completion callback (err, info)
+                 * @param {number|string} [replyToMessageID] - Optional message ID to reply to
                  */
                 sendMessage: async function (msg, threadID, callback, replyToMessageID) {
                         const targetThread = (threadID || ctx.chat?.id)?.toString();
-                        let cb = typeof callback === "function" ? callback : (typeof replyToMessageID === "function" ? replyToMessageID : null);
-                        let replyId = typeof replyToMessageID === "number" || typeof replyToMessageID === "string" ? replyToMessageID : undefined;
+                        const cb = typeof callback === "function" ? callback : (typeof replyToMessageID === "function" ? replyToMessageID : null);
+                        const replyId = (typeof replyToMessageID === "number" || typeof replyToMessageID === "string") ? replyToMessageID : undefined;
 
                         try {
                                 let sentMsgInfo = null;
@@ -61,11 +73,7 @@ function createFcaApiWrapper(ctx) {
                                                 parse_mode: "HTML"
                                         }).catch(() => botApi.sendMessage(targetThread, msg.toString(), { reply_to_message_id: replyId }));
 
-                                        sentMsgInfo = {
-                                                messageID: res.message_id,
-                                                threadID: targetThread,
-                                                timestamp: res.date * 1000
-                                        };
+                                        sentMsgInfo = { messageID: res.message_id, threadID: targetThread, timestamp: res.date * 1000 };
                                 } else if (typeof msg === "object" && msg !== null) {
                                         const text = msg.body || msg.text || "";
                                         const attachments = msg.attachment ? (Array.isArray(msg.attachment) ? msg.attachment : [msg.attachment]) : [];
@@ -91,14 +99,14 @@ function createFcaApiWrapper(ctx) {
                                 if (cb) cb(null, sentMsgInfo);
                                 return sentMsgInfo;
                         } catch (err) {
-                                log.error("FCA_API_SEND", `Failed to send message: ${err.message}`);
+                                log.error("FCA_API_SEND", `Failed sending message to ${targetThread}: ${err.message}`);
                                 if (cb) cb(err, null);
                                 throw err;
                         }
                 },
 
                 /**
-                 * api.unsendMessage(messageID, callback)
+                 * Deletes a message by ID.
                  */
                 unsendMessage: async function (messageID, callback) {
                         try {
@@ -111,7 +119,7 @@ function createFcaApiWrapper(ctx) {
                 },
 
                 /**
-                 * api.setMessageReaction(emoji, messageID, threadID, force, callback)
+                 * Sets an emoji reaction on a target message.
                  */
                 setMessageReaction: async function (emoji, messageID, threadID, force, callback) {
                         try {
@@ -127,7 +135,7 @@ function createFcaApiWrapper(ctx) {
                 },
 
                 /**
-                 * api.getUserInfo(userID, callback)
+                 * Fetches basic user information for a given user ID.
                  */
                 getUserInfo: async function (userID, callback) {
                         try {
@@ -151,7 +159,7 @@ function createFcaApiWrapper(ctx) {
                 },
 
                 /**
-                 * api.getThreadInfo(threadID, callback)
+                 * Fetches thread metadata for a chat ID.
                  */
                 getThreadInfo: async function (threadID, callback) {
                         try {
@@ -172,20 +180,20 @@ function createFcaApiWrapper(ctx) {
                 },
 
                 /**
-                 * api.getCurrentUserID()
+                 * Returns current bot user ID.
                  */
                 getCurrentUserID: function () {
                         return (global.GoatBot.botID || ctx.me?.id)?.toString();
                 },
 
                 /**
-                 * api.kickParticipant(userID, threadID, callback)
+                 * Bans and unbans a group member to kick them.
                  */
                 kickParticipant: async function (userID, threadID, callback) {
                         try {
                                 const targetThread = threadID || ctx.chat?.id;
                                 await botApi.banChatMember(targetThread, userID);
-                                await botApi.unbanChatMember(targetThread, userID); // unban so user can rejoin if invited
+                                await botApi.unbanChatMember(targetThread, userID);
                                 if (typeof callback === "function") callback(null);
                         } catch (err) {
                                 if (typeof callback === "function") callback(err);
@@ -195,7 +203,10 @@ function createFcaApiWrapper(ctx) {
 }
 
 /**
- * Creates FCA-compatible `event` object from Telegram update context
+ * Constructs an FCA event object from a Telegram update context.
+ * 
+ * @param {import("grammy").Context} ctx - grammY context
+ * @returns {Object} FCA event object
  */
 function createFcaEventObject(ctx) {
         const msg = ctx.message || ctx.editedMessage || {};
@@ -213,23 +224,13 @@ function createFcaEventObject(ctx) {
                 telegramCtx: ctx
         };
 
-        // Map Telegram attachments
         if (msg.photo) {
                 const largestPhoto = msg.photo[msg.photo.length - 1];
-                event.attachments.push({
-                        type: "photo",
-                        url: largestPhoto.file_id,
-                        file_id: largestPhoto.file_id
-                });
+                event.attachments.push({ type: "photo", url: largestPhoto.file_id, file_id: largestPhoto.file_id });
         } else if (msg.document) {
-                event.attachments.push({
-                        type: "file",
-                        url: msg.document.file_id,
-                        filename: msg.document.file_name
-                });
+                event.attachments.push({ type: "file", url: msg.document.file_id, filename: msg.document.file_name });
         }
 
-        // Map reply_to_message
         if (msg.reply_to_message) {
                 const replyMsg = msg.reply_to_message;
                 event.messageReply = {
