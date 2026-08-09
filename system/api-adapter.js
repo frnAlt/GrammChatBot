@@ -241,7 +241,7 @@ function createFcaApiWrapper(ctx) {
                                                 username: chat.username || "",
                                                 profileUrl: chat.username ? `https://t.me/${chat.username}` : "",
                                                 avatar: avatarUrl || `https://api.dicebear.com/7.x/bottts/png?seed=${targetUser}`,
-                                                thumbUrl: avatarUrl || `https://graph.facebook.com/${targetUser}/picture?width=720&height=720`
+                                                thumbUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/png?seed=${targetUser}`
                                         }
                                 };
                                 if (typeof callback === "function") callback(null, result);

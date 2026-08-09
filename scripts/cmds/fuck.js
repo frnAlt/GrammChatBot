@@ -32,7 +32,7 @@ module.exports = {
     } else {
       const one = mention[1];
       const two = mention[0];
-      bal(one, two).then(ptth => {
+      bal(one, two, api).then(ptth => {
         message.reply({ body: "", attachment: fs.createReadStream(ptth) });
       }).catch(error => {
         console.error(error);
@@ -42,10 +42,24 @@ module.exports = {
   }
 };
 
-async function bal(one, two) {
-  const avone = await jimp.read(`https://graph.facebook.com/${one}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`);
+async function getAvatarUrl(uid, api) {
+    try {
+        if (api && typeof api.getUserInfo === "function") {
+            const userInfo = await api.getUserInfo(uid);
+            if (userInfo && userInfo[uid] && userInfo[uid].thumbUrl) {
+                return userInfo[uid].thumbUrl;
+            }
+        }
+    } catch (e) {}
+    return `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(uid)}&size=512`;
+}
+
+async function bal(one, two, api) {
+  const url1 = await getAvatarUrl(one, api);
+  const url2 = await getAvatarUrl(two, api);
+  const avone = await jimp.read(url1);
   avone.circle();
-  const avtwo = await jimp.read(`https://graph.facebook.com/${two}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`);
+  const avtwo = await jimp.read(url2);
   avtwo.circle();
   const pth = "fucked.png";
   const img = await jimp.read("https://i.ibb.co/YpR7Bpv/image.jpg");
@@ -54,4 +68,4 @@ async function bal(one, two) {
 
   await img.writeAsync(pth);
   return pth;
-  }
+}

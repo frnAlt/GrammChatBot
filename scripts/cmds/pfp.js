@@ -6,41 +6,41 @@ module.exports = {
         config: {
                 name: "pfp",
                 aliases: ["avatar", "profilepic"],
-                version: "1.0",
+                version: "2.0",
                 author: "frnAlt & Gtajisan",
                 countDown: 5,
                 role: 0,
                 description: {
-                        vi: "Lấy ảnh đại diện của người dùng",
-                        en: "Fetch user's profile picture"
+                        vi: "Lấy ảnh đại diện Telegram của người dùng",
+                        en: "Fetch Telegram user's profile picture"
                 },
                 category: "utility",
                 guide: {
                         vi: '   {pn}: Lấy ảnh đại diện của bạn'
                                 + '\n   {pn} <@tag>: Lấy ảnh đại diện của người được tag'
-                                + '\n   {pn} <uid>: Lấy ảnh đại diện từ UID'
-                                + '\n   {pn} <profile_link>: Lấy ảnh đại diện từ link profile'
+                                + '\n   {pn} <user_id>: Lấy ảnh đại diện từ Telegram User ID'
+                                + '\n   {pn} <@username>: Lấy ảnh đại diện từ Telegram username'
                                 + '\n   (Hoặc reply tin nhắn của ai đó)',
                         en: '   {pn}: Fetch your profile picture'
                                 + '\n   {pn} <@tag>: Fetch tagged user\'s profile picture'
-                                + '\n   {pn} <uid>: Fetch profile picture from UID'
-                                + '\n   {pn} <profile_link>: Fetch profile picture from profile link'
+                                + '\n   {pn} <user_id>: Fetch profile picture from Telegram User ID'
+                                + '\n   {pn} <@username>: Fetch profile picture from Telegram username'
                                 + '\n   (Or reply to someone\'s message)'
                 }
         },
 
         langs: {
                 vi: {
-                        fetching: "🔍 Đang lấy ảnh đại diện...",
-                        success: "✓ Ảnh đại diện của %1",
+                        fetching: "🔍 Đang lấy ảnh đại diện Telegram...",
+                        success: "✓ Ảnh đại diện Telegram của %1",
                         error: "× Không thể lấy ảnh đại diện: %1",
-                        invalidUID: "! UID không hợp lệ"
+                        invalidUID: "! User ID hoặc username Telegram không hợp lệ"
                 },
                 en: {
-                        fetching: "🔍 Fetching profile picture...",
-                        success: "✓ Profile picture of %1",
+                        fetching: "🔍 Fetching Telegram profile picture...",
+                        success: "✓ Telegram profile picture of %1",
                         error: "× Could not fetch profile picture: %1",
-                        invalidUID: "! Invalid UID"
+                        invalidUID: "! Invalid Telegram User ID or Username"
                 }
         },
 
@@ -50,47 +50,33 @@ module.exports = {
                         
                         if (event.messageReply) {
                                 uid = event.messageReply.senderID;
-                        } else if (Object.keys(event.mentions).length > 0) {
+                        } else if (event.mentions && Object.keys(event.mentions).length > 0) {
                                 uid = Object.keys(event.mentions)[0];
                         } else if (args[0]) {
-                                if (!isNaN(args[0])) {
-                                        uid = args[0];
-                                } else if (args[0].includes("facebook.com/")) {
-                                        const match = args[0].match(/(?:profile\.php\?id=|\/)([\d]+)/);
-                                        if (match)
-                                                uid = match[1];
-                                        else {
-                                                const vanityMatch = args[0].match(/facebook\.com\/([^/?]+)/);
-                                                if (vanityMatch) {
-                                                        try {
-                                                                const response = await axios.get(`https://www.facebook.com/${vanityMatch[1]}`);
-                                                                const uidMatch = response.data.match(/"userID":"(\d+)"/);
-                                                                if (uidMatch)
-                                                                        uid = uidMatch[1];
-                                                        } catch (err) {
-                                                                return message.reply(getLang("error", "Could not extract UID from link"));
-                                                        }
+                                const cleanArg = args[0].replace(/^@/, "").replace(/^https?:\/\/t\.me\//, "");
+                                if (!isNaN(cleanArg)) {
+                                        uid = cleanArg;
+                                } else if (cleanArg) {
+                                        try {
+                                                const userInfo = await api.getUserInfo(cleanArg);
+                                                if (userInfo && userInfo[cleanArg]) {
+                                                        uid = cleanArg;
                                                 }
-                                        }
+                                        } catch (e) {}
                                 }
                         }
                         
-                        if (!uid || isNaN(uid))
-                                return message.reply(getLang("invalidUID"));
+                        if (!uid) return message.reply(getLang("invalidUID"));
                         
                         await message.reply(getLang("fetching"));
                         
-                        const userName = await usersData.getName(uid);
-                        let avatarURL = "";
-                        try {
-                                const userInfo = await api.getUserInfo(uid);
-                                if (userInfo && userInfo[uid] && userInfo[uid].thumbUrl) {
-                                        avatarURL = userInfo[uid].thumbUrl;
-                                }
-                        } catch (e) {}
+                        const userInfo = await api.getUserInfo(uid);
+                        const userObj = userInfo[uid] || {};
+                        const userName = userObj.name || (await usersData.getName(uid)) || `User (${uid})`;
 
-                        if (!avatarURL) {
-                                avatarURL = `https://graph.facebook.com/${uid}/picture?width=720&height=720&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+                        let avatarURL = userObj.thumbUrl || userObj.avatar;
+                        if (!avatarURL || avatarURL.includes("facebook.com")) {
+                                avatarURL = `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(uid)}&size=512`;
                         }
                         
                         const cachePath = path.join(__dirname, "cache", `pfp_${uid}.jpg`);

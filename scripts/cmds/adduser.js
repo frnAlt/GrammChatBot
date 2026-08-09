@@ -24,20 +24,20 @@ module.exports = {
 			successAdd: "- Đã thêm thành công %1 thành viên vào nhóm",
 			failedAdd: "- Không thể thêm %1 thành viên vào nhóm",
 			approve: "- Đã thêm %1 thành viên vào danh sách phê duyệt",
-			invalidLink: "Vui lòng nhập link facebook hợp lệ",
-			cannotGetUid: "Không thể lấy được uid của người dùng này",
-			linkNotExist: "Profile url này không tồn tại",
-			cannotAddUser: "Bot bị chặn tính năng hoặc người dùng này chặn người lạ thêm vào nhóm"
+			invalidLink: "Vui lòng nhập Telegram username hoặc link t.me hợp lệ",
+			cannotGetUid: "Không thể lấy được ID của người dùng này",
+			linkNotExist: "Profile URL Telegram này không tồn tại",
+			cannotAddUser: "Bot không thể thêm người dùng này vào nhóm"
 		},
 		en: {
 			alreadyInGroup: "Already in group",
 			successAdd: "- Successfully added %1 members to the group",
 			failedAdd: "- Failed to add %1 members to the group",
 			approve: "- Added %1 members to the approval list",
-			invalidLink: "Please enter a valid facebook link",
-			cannotGetUid: "Cannot get uid of this user",
-			linkNotExist: "This profile url does not exist",
-			cannotAddUser: "Bot is blocked or this user blocked strangers from adding to the group"
+			invalidLink: "Please enter a valid Telegram username or t.me link",
+			cannotGetUid: "Cannot get ID of this user",
+			linkNotExist: "This Telegram profile URL does not exist",
+			cannotAddUser: "Bot cannot add this user to the group"
 		}
 	},
 
