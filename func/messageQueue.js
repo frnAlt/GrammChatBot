@@ -1,7 +1,7 @@
 /**
  * High-Performance Message Queue System for GoatBot
  * Features: Priority queuing, batch processing, load balancing, deduplication
- * @author NeoKEX
+ * @author frnAlt & Gtajisan
  */
 
 class MessageQueue extends require('events').EventEmitter {

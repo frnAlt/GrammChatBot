@@ -140,7 +140,7 @@ module.exports = {
     name: "hello",
     aliases: ["hi"],
     version: "2.0",
-    author: "NeoKEX",
+    author: "frnAlt & Gtajisan",
     countDown: 2,
     role: 0,
     description: { en: "Say hello using classic Goatbot FCA syntax" },
@@ -215,6 +215,6 @@ pm2 startup
 
 ## 📜 License
 
-- **Original Architecture**: [Goat-Bot-V2](https://github.com/ntkhang03/Goat-Bot-V2) by NTKhang & Modded by NeoKEX.
-- **Telegram Adapter Port**: GrammChatBot by NeoKEX.
+- **Original Architecture**: [Goat-Bot-V2](https://github.com/ntkhang03/Goat-Bot-V2) by NTKhang & Modded by frnAlt & Gtajisan.
+- **Telegram Adapter Port**: GrammChatBot by frnAlt & Gtajisan.
 - **License**: MIT

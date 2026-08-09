@@ -13,7 +13,7 @@ module.exports = {
                 name: "examplecmd",
                 aliases: ["fca2tca", "testadapter"],
                 version: "2.0",
-                author: "NeoKEX",
+                author: "frnAlt & Gtajisan",
                 countDown: 5,
                 role: 0,
                 description: {

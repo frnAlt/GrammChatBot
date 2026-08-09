@@ -28,7 +28,7 @@ module.exports = {
 	config: {
 		name: "stats",
 		version: "3.0.0",
-		author: "NeoKEX",
+		author: "frnAlt & Gtajisan",
 		countDown: 5,
 		role: 0,
 		shortDescription: {

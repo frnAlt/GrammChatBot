@@ -1,5 +1,5 @@
 /**
- * @author NTKhang & Modded for Telegram by NeoKEX
+ * @author NTKhang & Modded for Telegram by frnAlt & Gtajisan
  * ! GoatBot V2 Main Logic & Bot Orchestration
  */
 

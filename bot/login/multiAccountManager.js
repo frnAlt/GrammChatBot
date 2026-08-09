@@ -1,5 +1,5 @@
 /**
- * @author NeoKEX
+ * @author frnAlt & Gtajisan
  * MultiAccountManager - Manages multiple account files for seamless switching
  * When one account faces issues, automatically switches to the next available account
  */

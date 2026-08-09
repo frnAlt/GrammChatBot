@@ -1,7 +1,7 @@
 /**
  * Optimized Spam Tracker with TTL and Memory-efficient data structures
  * Replaces inefficient array filtering with Map-based TTL tracking
- * @author NeoKEX
+ * @author frnAlt & Gtajisan
  */
 
 class SpamTracker {

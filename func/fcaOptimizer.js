@@ -1,7 +1,7 @@
 /**
  * FCA API Optimizer - High-performance wrapper for @lazyneoaz/metachat
  * Features: Connection pooling, request batching, intelligent caching, rate limiting
- * @author NeoKEX
+ * @author frnAlt & Gtajisan
  */
 
 const EventEmitter = require('events');
