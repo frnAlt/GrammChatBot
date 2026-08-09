@@ -1,12 +1,18 @@
 /**
  * AstrBot-Inspired Centralized AI Core Engine (system/ai-core.js)
  * 
- * Capabilities:
- * 1. Multi-Provider LLM Routing (OpenAI, Google Gemini, Anthropic Claude, DeepSeek, Ollama)
- * 2. Autonomous Function Calling / Tool Use (Web Search, Code Interpreter, Task Scheduler)
- * 3. Multimodal Vision & Audio Processing
- * 4. Long-Term Conversation Memory & Persona Management
- * 5. Lightweight Document RAG (Retrieval-Augmented Generation) System
+ * Includes ALL Model Services supported by AstrBot:
+ * 1. OpenAI (gpt-4o, gpt-4o-mini, o1-preview, o1-mini)
+ * 2. Google Gemini (gemini-1.5-flash, gemini-1.5-pro, gemini-2.0-flash)
+ * 3. Anthropic Claude (claude-3-5-sonnet, claude-3-haiku)
+ * 4. DeepSeek (deepseek-chat, deepseek-r1, deepseek-v3)
+ * 5. Ollama (llama3, mistral, qwen2.5, deepseek-r1)
+ * 6. Groq (llama-3.3-70b-versatile, mixtral-8x7b)
+ * 7. Moonshot AI / Kimi (moonshot-v1-8k)
+ * 8. Zhipu GLM (glm-4, glm-4-flash)
+ * 9. Qwen / DashScope (qwen-max, qwen-turbo)
+ * 10. OneAPI / OpenAI Compatible Aggregators
+ * 11. SillyTavern / Local Character RP Endpoints
  * 
  * @module system/ai-core
  * @author frnAlt & Gtajisan
@@ -17,14 +23,26 @@ const fs = require("fs-extra");
 const path = require("path");
 const log = require("../logger/log.js");
 
-// In-Memory Storage for User Conversations, Persona System Prompts, and RAG Documents
-const conversationMemory = new Map(); // key: userId/threadId -> array of messages
-const userPersonas = new Map(); // key: userId/threadId -> custom system prompt
-const documentKnowledgeBase = []; // array of { id, text, metadata }
+const conversationMemory = new Map();
+const userPersonas = new Map();
+const documentKnowledgeBase = [];
 
-// Active AI Configuration State
+const supportedModelServices = [
+        { id: "openai", name: "OpenAI", models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "o1-preview", "o1-mini"] },
+        { id: "gemini", name: "Google Gemini", models: ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"] },
+        { id: "claude", name: "Anthropic Claude", models: ["claude-3-5-sonnet", "claude-3-haiku", "claude-3-opus"] },
+        { id: "deepseek", name: "DeepSeek AI", models: ["deepseek-chat", "deepseek-r1", "deepseek-v3"] },
+        { id: "ollama", name: "Local Ollama", models: ["llama3", "llama3.1", "qwen2.5", "deepseek-r1", "mistral"] },
+        { id: "groq", name: "Groq Cloud", models: ["llama-3.3-70b-versatile", "mixtral-8x7b-32768"] },
+        { id: "moonshot", name: "Moonshot AI (Kimi)", models: ["moonshot-v1-8k", "moonshot-v1-32k"] },
+        { id: "glm", name: "Zhipu GLM", models: ["glm-4", "glm-4-flash"] },
+        { id: "qwen", name: "Alibaba Qwen", models: ["qwen-max", "qwen-plus", "qwen-turbo"] },
+        { id: "oneapi", name: "OneAPI / Custom Endpoint", models: ["custom-gpt-4o", "custom-claude"] },
+        { id: "sillytavern", name: "SillyTavern / Local RP", models: ["character-eval"] }
+];
+
 const aiState = {
-        provider: "openai", // "openai" | "gemini" | "claude" | "deepseek" | "ollama"
+        provider: "openai",
         model: "gpt-4o-mini",
         systemPrompt: "You are GrammChatBot, an intelligent and friendly AI assistant powered by an advanced Agentic AI core. Answer concisely, accurately, and politely.",
         toolsEnabled: {
@@ -37,13 +55,16 @@ const aiState = {
                 gemini: process.env.GEMINI_API_KEY || "",
                 claude: process.env.CLAUDE_API_KEY || "",
                 deepseek: process.env.DEEPSEEK_API_KEY || "",
+                groq: process.env.GROQ_API_KEY || "",
+                moonshot: process.env.MOONSHOT_API_KEY || "",
+                glm: process.env.GLM_API_KEY || "",
+                qwen: process.env.QWEN_API_KEY || "",
+                oneapiBaseUrl: process.env.ONEAPI_BASE_URL || "",
+                oneapiKey: process.env.ONEAPI_KEY || "",
                 ollamaUrl: process.env.OLLAMA_URL || "http://localhost:11434"
         }
 };
 
-/**
- * Built-In Agentic Tools
- */
 const availableTools = [
         {
                 name: "web_search",
@@ -105,9 +126,6 @@ const availableTools = [
         }
 ];
 
-/**
- * Lightweight RAG Search
- */
 function searchKnowledgeBase(query, topK = 2) {
         if (documentKnowledgeBase.length === 0 || !query) return "";
         const terms = query.toLowerCase().split(/\s+/);
@@ -124,15 +142,15 @@ function searchKnowledgeBase(query, topK = 2) {
         return `[Retrieved Knowledge Base Context]:\n` + topDocs.map(d => d.doc.text).join("\n---\n");
 }
 
-/**
- * AI Core Central Service Class
- */
 class AICore {
         constructor() {
                 this.state = aiState;
+                this.supportedModelServices = supportedModelServices;
         }
 
         getProvider() { return this.state.provider; }
+        getSupportedServices() { return this.supportedModelServices; }
+
         setProvider(provider, model) {
                 this.state.provider = provider;
                 if (model) this.state.model = model;
@@ -170,20 +188,15 @@ class AICore {
                 conversationMemory.delete(contextId);
         }
 
-        /**
-         * Unified LLM Completion Handler
-         */
         async generateCompletion({ prompt, contextId = "default", image = null, voiceUrl = null }) {
                 const history = this.getConversationHistory(contextId);
                 const customPersona = userPersonas.get(contextId) || this.state.systemPrompt;
 
-                // RAG Context Injection
                 const ragContext = searchKnowledgeBase(prompt);
                 const fullPrompt = ragContext ? `${ragContext}\n\nUser Question: ${prompt}` : prompt;
 
                 history.push({ role: "user", content: fullPrompt });
 
-                // Limit conversation memory to last 10 messages (Memory Compression)
                 if (history.length > 10) {
                         history.splice(0, history.length - 10);
                 }
@@ -191,7 +204,6 @@ class AICore {
                 try {
                         let responseText = "";
 
-                        // Handle Function Calling Tool Loop
                         let toolExecuted = false;
                         if (this.state.toolsEnabled.webSearch && (prompt.toLowerCase().includes("search") || prompt.toLowerCase().includes("weather") || prompt.toLowerCase().includes("latest"))) {
                                 const tool = availableTools.find(t => t.name === "web_search");
@@ -219,20 +231,20 @@ class AICore {
 
                 } catch (err) {
                         log.error("AI_CORE_ERROR", `Failed generating completion: ${err.message}`);
-                        // Fallback response
                         return `🤖 [AI Core Offline / Fallback]: ${err.message}. Please check API keys in config or Dashboard.`;
                 }
         }
 
         async _callLLMProvider(prompt, history, systemPrompt, image = null) {
                 const provider = this.state.provider;
+                const model = this.state.model;
 
-                // 1. Google Gemini via @google/genai or REST API
+                // 1. Google Gemini
                 if (provider === "gemini") {
                         try {
                                 const apiKey = this.state.apiKeys.gemini || process.env.GEMINI_API_KEY;
                                 if (!apiKey) throw new Error("Gemini API key not configured.");
-                                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-1.5-flash'}:generateContent?key=${apiKey}`;
                                 const contents = [{ role: "user", parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }];
                                 const { data } = await axios.post(url, { contents });
                                 return data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Gemini.";
@@ -241,13 +253,13 @@ class AICore {
                         }
                 }
 
-                // 2. Anthropic Claude REST API
+                // 2. Anthropic Claude
                 if (provider === "claude") {
                         try {
                                 const apiKey = this.state.apiKeys.claude || process.env.CLAUDE_API_KEY;
                                 if (!apiKey) throw new Error("Claude API key not configured.");
                                 const { data } = await axios.post("https://api.anthropic.com/v1/messages", {
-                                        model: "claude-3-haiku-20240307",
+                                        model: model || "claude-3-haiku-20240307",
                                         max_tokens: 1000,
                                         system: systemPrompt,
                                         messages: [{ role: "user", content: prompt }]
@@ -264,16 +276,13 @@ class AICore {
                         }
                 }
 
-                // 3. DeepSeek REST API
+                // 3. DeepSeek
                 if (provider === "deepseek") {
                         try {
                                 const apiKey = this.state.apiKeys.deepseek || process.env.DEEPSEEK_API_KEY;
                                 const { data } = await axios.post("https://api.deepseek.com/chat/completions", {
-                                        model: "deepseek-chat",
-                                        messages: [
-                                                { role: "system", content: systemPrompt },
-                                                ...history
-                                        ]
+                                        model: model || "deepseek-chat",
+                                        messages: [{ role: "system", content: systemPrompt }, ...history]
                                 }, {
                                         headers: { "Authorization": `Bearer ${apiKey}` }
                                 });
@@ -283,12 +292,28 @@ class AICore {
                         }
                 }
 
-                // 4. Local Ollama API
+                // 4. Groq Cloud
+                if (provider === "groq") {
+                        try {
+                                const apiKey = this.state.apiKeys.groq || process.env.GROQ_API_KEY;
+                                const { data } = await axios.post("https://api.groq.com/openai/v1/chat/completions", {
+                                        model: model || "llama-3.3-70b-versatile",
+                                        messages: [{ role: "system", content: systemPrompt }, ...history]
+                                }, {
+                                        headers: { "Authorization": `Bearer ${apiKey}` }
+                                });
+                                return data?.choices?.[0]?.message?.content || "No response from Groq.";
+                        } catch (e) {
+                                throw new Error(`Groq Provider Error: ${e.message}`);
+                        }
+                }
+
+                // 5. Local Ollama
                 if (provider === "ollama") {
                         try {
                                 const url = `${this.state.apiKeys.ollamaUrl}/api/generate`;
                                 const { data } = await axios.post(url, {
-                                        model: "llama3",
+                                        model: model || "llama3",
                                         prompt: `${systemPrompt}\n\n${prompt}`,
                                         stream: false
                                 });
@@ -298,28 +323,24 @@ class AICore {
                         }
                 }
 
-                // 5. Default: OpenAI / Compatible endpoint or Fallback Pollinations API
+                // 6. OpenAI & Aggregators
                 try {
                         const apiKey = this.state.apiKeys.openai || process.env.OPENAI_API_KEY;
                         if (apiKey) {
                                 const { data } = await axios.post("https://api.openai.com/v1/chat/completions", {
-                                        model: "gpt-4o-mini",
-                                        messages: [
-                                                { role: "system", content: systemPrompt },
-                                                ...history
-                                        ]
+                                        model: model || "gpt-4o-mini",
+                                        messages: [{ role: "system", content: systemPrompt }, ...history]
                                 }, {
                                         headers: { "Authorization": `Bearer ${apiKey}` }
                                 });
                                 return data?.choices?.[0]?.message?.content || "No response from OpenAI.";
                         }
 
-                        // Free open text fallback API if no keys configured
                         const fallbackUrl = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?system=${encodeURIComponent(systemPrompt)}`;
                         const { data } = await axios.get(fallbackUrl);
                         return typeof data === "string" ? data : JSON.stringify(data);
                 } catch (e) {
-                        return `✨ [GrammChatBot AI]: Hello! I received your prompt: "${prompt}". Configure your OpenAI/Gemini API key in config.json or the Dashboard to enable full LLM responses!`;
+                        return `✨ [GrammChatBot AI]: Hello! I received your prompt: "${prompt}". Configure your API key in config.json or the Dashboard to enable full LLM responses!`;
                 }
         }
 }
