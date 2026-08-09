@@ -1,75 +1,74 @@
-/**
- * Developer Command: /eval
- * Evaluates raw JavaScript code inside the bot runtime context.
- * Role Level: 4 (Developer Only)
- */
-
 const { removeHomeDir, log } = global.utils;
 
 module.exports = {
         config: {
                 name: "eval",
-                aliases: ["evaluate", "js"],
-                version: "2.0",
-                author: "NTKhang & Modded by NeoKEX",
-                countDown: 1,
-                role: 4, // Strictly Developer Level 4
+                version: "1.7",
+                author: "NTKhang",
+                countDown: 5,
+                role: 4,
                 description: {
-                        vi: "Thực thi đoạn code JavaScript trực tiếp",
-                        en: "Evaluate raw JavaScript code in runtime"
+                        vi: "Test code nhanh",
+                        en: "Test code quickly"
                 },
-                category: "developer",
+                category: "owner",
                 guide: {
-                        vi: "{pn} <đoạn code JS>",
-                        en: "{pn} <JS code>"
+                        vi: "{pn} <đoạn code cần test>",
+                        en: "{pn} <code to test>"
                 }
         },
 
         langs: {
                 vi: {
-                        error: "✗ Đã xảy ra lỗi khi thực thi code:"
+                        error: "✗ Đã có lỗi xảy ra:"
                 },
                 en: {
-                        error: "✗ An error occurred while evaluating code:"
+                        error: "✗ An error occurred:"
                 }
         },
 
-        onStart: async function ({ bot, ctx, api, args, message, event, role, getLang }) {
-                if (role < 4) {
-                        return message.reply("⛔ Permission Denied: /eval is strictly locked to Developer Level 4.");
-                }
-
-                const code = args.join(" ");
-                if (!code) {
-                        return message.reply("⚠ Please enter JavaScript code to evaluate.");
-                }
-
+        onStart: async function ({ api, args, message, event, threadsData, usersData, dashBoardData, globalData, threadModel, userModel, dashBoardModel, globalModel, role, commandName, getLang }) {
                 function output(msg) {
-                        if (typeof msg === "number" || typeof msg === "boolean" || typeof msg === "function") {
+                        if (typeof msg == "number" || typeof msg == "boolean" || typeof msg == "function")
                                 msg = msg.toString();
-                        } else if (msg instanceof Map) {
-                                msg = `Map(${msg.size}) ` + JSON.stringify(Object.fromEntries(msg), null, 2);
-                        } else if (typeof msg === "object") {
-                                msg = JSON.stringify(msg, null, 2);
-                        } else if (typeof msg === "undefined") {
-                                msg = "undefined";
+                        else if (msg instanceof Map) {
+                                let text = `Map(${msg.size}) `;
+                                text += JSON.stringify(mapToObj(msg), null, 2);
+                                msg = text;
                         }
+                        else if (typeof msg == "object")
+                                msg = JSON.stringify(msg, null, 2);
+                        else if (typeof msg == "undefined")
+                                msg = "undefined";
+
                         message.reply(msg);
                 }
-
-                const evalWrapper = `
+                function out(msg) {
+                        output(msg);
+                }
+                function mapToObj(map) {
+                        const obj = {};
+                        map.forEach(function (v, k) {
+                                obj[k] = v;
+                        });
+                        return obj;
+                }
+                const cmd = `
                 (async () => {
                         try {
-                                ${code}
-                        } catch(err) {
-                                message.reply("${getLang("error")}\\n" + (err.stack ? err.stack : JSON.stringify(err, null, 2)));
+                                ${args.join(" ")}
+                        }
+                        catch(err) {
+                                log.err("eval command", err);
+                                message.send(
+                                        "${getLang("error")}\\n" +
+                                        (err.stack ?
+                                                removeHomeDir(err.stack) :
+                                                removeHomeDir(JSON.stringify(err, null, 2) || "")
+                                        )
+                                );
                         }
                 })()`;
-
-                try {
-                        eval(evalWrapper);
-                } catch (e) {
-                        message.reply(`✗ Syntax/Execution Error:\n${e.message}`);
-                }
+                eval(cmd);
         }
 };

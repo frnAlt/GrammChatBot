@@ -1,11 +1,14 @@
 /**
  * Core Telegram Bot Engine (bot.js)
- * Integrates grammY update stream with system/api-adapter.js for Goatbot V2 compatibility
+ * Integrates grammY update stream with system/api-adapter.js and /includes system listeners
  */
 
 const { createFcaApiWrapper, createFcaEventObject } = require("./system/api-adapter.js");
 const { getUserRole, canUseCommand } = require("./bot/telegram/handlerTelegram.js");
 const { findClosestCommand } = require("./utils/levenshtein.js");
+const handleReply = require("./includes/handleReply.js");
+const handleReaction = require("./includes/handleReaction.js");
+const handleEvent = require("./includes/handleEvent.js");
 const log = require("./logger/log.js");
 
 async function handleTelegramEvent(ctx) {
@@ -37,48 +40,26 @@ async function handleTelegramEvent(ctx) {
                 react: (emoji) => api.setMessageReaction(emoji, event.messageID, event.threadID)
         };
 
-        // ————————————————— HANDLE REPLIES (onReply) ————————————————— //
-        if (event.messageReply) {
-                const replyData = GoatBot.onReply.get(event.messageReply.messageID);
-                if (replyData) {
-                        const { commandName } = replyData;
-                        const command = GoatBot.commands.get(commandName);
-                        if (command && typeof command.onReply === "function") {
-                                const getLang = (key, ...args) => utils.getText(command, key, ...args);
-                                try {
-                                        await command.onReply({
-                                                api,
-                                                event,
-                                                message,
-                                                args: event.body.trim().split(/\s+/),
-                                                Reply: replyData,
-                                                replyData,
-                                                role,
-                                                commandName,
-                                                getLang,
-                                                threadsData: db.threadsData,
-                                                usersData: db.usersData
-                                        });
-                                } catch (err) {
-                                        log.error("ON_REPLY", `Error executing onReply (${commandName}): ${err.message}`);
-                                }
-                        }
-                }
-        }
+        const getLang = (cmd, key, ...args) => utils.getText(cmd, key, ...args);
+
+        // ————————————————— SYSTEM LISTENERS (/includes) ————————————————— //
+        await handleReply({ api, event, message, role, getLang: (key, ...args) => getLang(null, key, ...args) });
+        await handleReaction({ api, event, message, role, getLang: (key, ...args) => getLang(null, key, ...args) });
+        await handleEvent({ api, event, message, role });
 
         // ————————————————— HANDLE ONCHAT LISTENERS ————————————————— //
         for (const commandName of GoatBot.onChat) {
                 const command = GoatBot.commands.get(commandName);
                 if (command && typeof command.onChat === "function") {
                         try {
-                                const getLang = (key, ...args) => utils.getText(command, key, ...args);
+                                const cmdLang = (key, ...args) => getLang(command, key, ...args);
                                 await command.onChat({
                                         api,
                                         event,
                                         message,
                                         role,
                                         commandName,
-                                        getLang,
+                                        getLang: cmdLang,
                                         threadsData: db.threadsData,
                                         usersData: db.usersData
                                 });
@@ -136,7 +117,7 @@ async function handleTelegramEvent(ctx) {
         }
 
         // Language translation helper
-        const getLang = (key, ...args) => utils.getText(command, key, ...args);
+        const cmdGetLang = (key, ...args) => getLang(command, key, ...args);
 
         // Execute Command onStart in native Goatbot FCA syntax
         try {
@@ -148,7 +129,7 @@ async function handleTelegramEvent(ctx) {
                         message,
                         role,
                         commandName,
-                        getLang,
+                        getLang: cmdGetLang,
                         threadsData: db.threadsData,
                         usersData: db.usersData,
                         dashBoardData: db.dashBoardData,

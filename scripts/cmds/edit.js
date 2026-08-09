@@ -1,58 +1,50 @@
-/**
- * AI Image Editing Command: /edit
- * Applies AI filters/transforms to replied images and streams the result directly.
- */
-
-const axios = require("axios");
-
+const axios = require('axios');
 module.exports = {
-        config: {
-                name: "edit",
-                aliases: ["imgedit", "filter"],
-                version: "2.0",
-                author: "NeoKEX",
-                countDown: 10,
-                role: 0,
-                description: {
-                        vi: "Chỉnh sửa hoặc áp dụng bộ lọc cho ảnh (Stream)",
-                        en: "Apply AI edits/filters to an image (Stream)"
-                },
-                category: "ai-tools",
-                guide: {
-                        vi: "Reply 1 bức ảnh với lệnh: {pn} <phong cách / prompt>",
-                        en: "Reply to an image with: {pn} <style / prompt>"
-                }
+    config: {
+        name: "nbpro",
+        version: "1.0",
+        aliases: ["edit", "nb", "nanobanana", "nanobanana-pro"],
+        author: "Tawsif~",
+        category: "ai",
+        countDown: 5,
+        role: 0,
+        description: {
+            en: "edit & generate images using Nano-banana Pro"
         },
-
-        onStart: async function ({ ctx, message, args, event }) {
-                const prompt = args.join(" ") || "anime style cyberpunk";
-                const replyObj = event.telegramCtx?.message?.reply_to_message;
-
-                if (!replyObj || (!replyObj.photo && !replyObj.document)) {
-                        return message.reply("🖼 Please reply to an image message with /edit <style/prompt>");
-                }
-
-                await message.reply("🪄 Applying AI image edit... Please wait.");
-
-                try {
-                        // Get photo file link from Telegram
-                        const photoArray = replyObj.photo;
-                        const fileId = photoArray ? photoArray[photoArray.length - 1].file_id : replyObj.document.file_id;
-                        const fileInfo = await ctx.api.getFile(fileId);
-                        const inputImgUrl = `https://api.telegram.org/file/bot${ctx.api.token}/${fileInfo.file_path}`;
-
-                        // Render modified image stream using open image transform API
-                        const editUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt + " image transform")}?image=${encodeURIComponent(inputImgUrl)}&width=1024&height=1024`;
-
-                        const response = await axios.get(editUrl, { responseType: "stream" });
-
-                        await ctx.replyWithPhoto({ source: response.data }, {
-                                caption: `✨ <b>Edited Image</b>\n<b>Style:</b> ${prompt}`,
-                                parse_mode: "HTML",
-                                reply_to_message_id: ctx.message?.message_id
-                        });
-                } catch (err) {
-                        message.reply(`❌ Failed to edit image: ${err.message}`);
-                }
+        guide: {
+            en: " <prompt> | reply to image"
         }
+    },
+    onStart: async function({
+        message, event, args
+    }) {
+        let prompt = args.join(" ");
+        if ((!event.messageReply && !event?.messageReply?.attachments[0]?.url && !prompt) || (event?.messageReply?.attachments[0]?.url && !prompt)) {
+            return message.reply('provide a prompt or reply to an image');
+        } else if (!event?.messageReply?.attachments[0] && prompt) {
+            let ratio = prompt?.split("--ar=")[1] || prompt?.split("--ar ")[1] || '1:1';
+            message.reaction("⏳", event.messageID);
+            try {
+                const gres = await axios.get(`https://tawsif.is-a.dev/gemini/nano-banana-pro-gen?prompt=${encodeURIComponent(prompt)}&ratio=${ratio}`);
+                message.reply({
+                    body: "✅ | Generated", attachment: await global.utils.getStreamFromURL(gres.data.imageUrl, 'gen.png')
+                });
+            } catch (e) {
+                message.reaction("❌", event.messageID);
+            }
+        } else {
+            let imgs = [];
+            for (let i = 0; i < event.messageReply.attachments.length; i++) {
+                imgs.push(event.messageReply.attachments[i].url);
+            }
+            try {
+                const eres = await axios.get(`https://tawsif.is-a.dev/gemini/nano-banana-pro-edit?prompt=${encodeURIComponent(prompt)}&urls=${encodeURIComponent(JSON.stringify(imgs))}`);
+                await message.reply({
+                    attachment: await global.utils.getStreamFromURL(eres.data.imageUrl, 'edit.png'), body: "✅ | image Edited"
+                });
+            } catch (error) {
+                message.reaction("❌", event.messageID);
+            }
+        }
+    }
 };

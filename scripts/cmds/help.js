@@ -1,68 +1,104 @@
-/**
- * Help Command: /help
- * Displays list of available commands and usage guides.
- */
+const fs = require("fs-extra");
+const path = require("path");
 
 module.exports = {
-        config: {
-                name: "help",
-                aliases: ["cmds", "menu"],
-                version: "2.0",
-                author: "NeoKEX",
-                countDown: 2,
-                role: 0,
-                description: {
-                        vi: "Hiển thị danh sách các lệnh của bot",
-                        en: "Display available bot commands"
-                },
-                category: "utility",
-                guide: {
-                        vi: "{pn} [tên lệnh]",
-                        en: "{pn} [command name]"
-                }
-        },
+	config: {
+		name: "help",
+		aliases: ["menu", "commands"],
+		version: "4.8",
+		author: "NeoKEX",
+		shortDescription: "Show all available commands",
+		longDescription: "Displays a clean and premium-styled categorized list of commands.",
+		category: "system",
+		guide: "{pn}help [command name]"
+	},
 
-        onStart: async function ({ message, args }) {
-                const { GoatBot } = global;
-                const prefix = GoatBot.config.prefix || "/";
-                const commands = GoatBot.commands;
+	onStart: async function ({ message, args, prefix }) {
+		const allCommands = global.GoatBot.commands;
+		const categories = {};
 
-                if (args[0]) {
-                        const cmdName = args[0].toLowerCase();
-                        const cmd = commands.get(cmdName) || commands.get(GoatBot.aliases.get(cmdName));
-                        if (!cmd) {
-                                return message.reply(`❌ Command "${cmdName}" not found.`);
-                        }
-                        const conf = cmd.config;
-                        return message.reply(
-                                `📌 <b>Command: ${conf.name}</b>\n\n` +
-                                `• <b>Description:</b> ${conf.description?.en || conf.description || "N/A"}\n` +
-                                `• <b>Aliases:</b> ${conf.aliases?.join(", ") || "None"}\n` +
-                                `• <b>Category:</b> ${conf.category || "utility"}\n` +
-                                `• <b>Role Required:</b> Level ${conf.role ?? 0}\n` +
-                                `• <b>Cooldown:</b> ${conf.countDown || 0}s\n` +
-                                `• <b>Usage Guide:</b> ${conf.guide?.en || conf.guide || prefix + conf.name}`,
-                                { parse_mode: "HTML" }
-                        );
-                }
+		const emojiMap = {
+			ai: "➥", "ai-image": "➥", group: "➥", system: "➥",
+			fun: "➥", owner: "➥", config: "➥", economy: "➥",
+			media: "➥", "18+": "➥", tools: "➥", utility: "➥",
+			info: "➥", image: "➥", game: "➥", admin: "➥",
+			rank: "➥", boxchat: "➥", others: "➥"
+		};
 
-                // Categorize commands
-                const categories = {};
-                for (const [name, cmd] of commands.entries()) {
-                        const cat = cmd.config?.category || "utility";
-                        if (!categories[cat]) categories[cat] = [];
-                        if (!categories[cat].includes(name)) {
-                                categories[cat].push(name);
-                        }
-                }
+		const cleanCategoryName = (text) => {
+			if (!text) return "others";
+			return text
+				.normalize("NFKD")
+				.replace(/[^\w\s-]/g, "")
+				.replace(/\s+/g, " ")
+				.trim()
+				.toLowerCase();
+		};
 
-                let text = `🤖 <b>GrammChatBot Command Menu</b>\n\n`;
-                for (const [cat, cmds] of Object.entries(categories)) {
-                        text += `📂 <b>${cat.toUpperCase()}</b>:\n`;
-                        text += `<code>${cmds.map(c => prefix + c).join(", ")}</code>\n\n`;
-                }
+		for (const [name, cmd] of allCommands) {
+			const cat = cleanCategoryName(cmd.config.category);
+			if (!categories[cat]) categories[cat] = [];
+			categories[cat].push(cmd.config.name);
+		}
 
-                text += `💡 <i>Type <code>${prefix}help &lt;command&gt;</code> for detailed usage info.</i>`;
-                return message.reply(text, { parse_mode: "HTML" });
-        }
+
+		if (args[0]) {
+			const query = args[0].toLowerCase();
+			const cmd =
+				allCommands.get(query) ||
+				[...allCommands.values()].find((c) => (c.config.aliases || []).includes(query));
+			if (!cmd) return message.reply(`❌ Command "${query}" not found.`);
+
+			const {
+				name,
+				version,
+				author,
+				guide,
+				category,
+				shortDescription,
+				longDescription,
+				aliases,
+				role 
+			} = cmd.config;
+
+			const desc =
+				typeof longDescription === "string"
+					? longDescription
+					: longDescription?.en || shortDescription?.en || shortDescription || "No description";
+
+			const usage =
+				typeof guide === "string"
+					? guide.replace(/{pn}/g, prefix)
+					: guide?.en?.replace(/{pn}/g, prefix) || `${prefix}${name}`;
+
+						const requiredRole = cmd.config.role !== undefined ? cmd.config.role : 0; 
+
+			return message.reply(
+				`☠️ 𝗖𝗢𝗠𝗠𝗔𝗡𝗗 𝗜𝗡𝗙𝗢 ☠️\n\n` +
+				`➥ Name: ${name}\n` +
+				`➥ Category: ${category || "Uncategorized"}\n` +
+				`➥ Description: ${desc}\n` +
+				`➥ Aliases: ${aliases?.length ? aliases.join(", ") : "None"}\n` +
+				`➥ Usage: ${usage}\n` +
+				`➥ Permission: ${requiredRole}\n` + 
+				`➥ Author: ${author}\n` +
+				`➥ Version: ${version}`
+			);
+		}
+
+		const formatCommands = (cmds) =>
+			cmds.sort().map((cmd) => `× ${cmd}`);
+
+		let msg = `━━━☠️ 𝗡𝗲𝗼𝗞𝗘𝗫 𝗔𝗜 ☠️━━━\n`;
+		const sortedCategories = Object.keys(categories).sort();
+		for (const cat of sortedCategories) {
+			const emoji = emojiMap[cat] || "➥";
+			msg += `\n╭──『 ${cat.toUpperCase()} 』\n`; 
+			msg += `${formatCommands(categories[cat]).join(' ')}\n`; 
+			msg += `╰────────────◊\n`;
+		}
+		msg += `\n➥ Use: ${prefix}help [command name] for details\n➥Use: ${prefix}callad to talk with bot admins '_'`;
+
+		return message.reply(msg);
+	}
 };

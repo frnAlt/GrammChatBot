@@ -1,97 +1,116 @@
-/**
- * Admin Command: /admin (/premium /ban /unban)
- * Manages premium user subscriptions and user/group bans.
- * Role Level: 3 (Bot Admin) or 4 (Developer)
- */
+const { config } = global.GoatBot;
+const { writeFileSync } = require("fs-extra");
 
 module.exports = {
         config: {
                 name: "admin",
-                aliases: ["premium", "manage"],
-                version: "2.0",
-                author: "NeoKEX",
-                countDown: 2,
-                role: 3, // Level 3 Bot Admin or Level 4 Dev
+                version: "1.6",
+                author: "NTKhang",
+                countDown: 5,
+                role: 2,
                 description: {
-                        vi: "Quản lý thành viên Premium, Bot Admin và cấm người dùng",
-                        en: "Manage Premium users, Bot Admins, and User Bans"
+                        vi: "Thêm, xóa, sửa quyền admin",
+                        en: "Add, remove, edit admin role"
                 },
-                category: "admin",
+                category: "box chat",
                 guide: {
-                        vi: "{pn} premium add <userID>\n{pn} premium remove <userID>\n{pn} ban <userID>\n{pn} unban <userID>",
-                        en: "{pn} premium add <userID>\n{pn} premium remove <userID>\n{pn} ban <userID>\n{pn} unban <userID>"
+                        vi: '   {pn} [add | -a] <uid | @tag>: Thêm quyền admin cho người dùng'
+                                + '\n     {pn} [remove | -r] <uid | @tag>: Xóa quyền admin của người dùng'
+                                + '\n     {pn} [list | -l]: Liệt kê danh sách admin',
+                        en: '   {pn} [add | -a] <uid | @tag>: Add admin role for user'
+                                + '\n     {pn} [remove | -r] <uid | @tag>: Remove admin role of user'
+                                + '\n     {pn} [list | -l]: List all admins'
                 }
         },
 
-        onStart: async function ({ ctx, message, args, role }) {
-                if (role < 3) {
-                        return message.reply("⛔ Permission Denied: /admin requires Level 3 Bot Admin or Level 4 Developer access.");
+        langs: {
+                vi: {
+                        added: "✓ | Đã thêm quyền admin cho %1 người dùng:\n%2",
+                        alreadyAdmin: "\n⚠ | %1 người dùng đã có quyền admin từ trước rồi:\n%2",
+                        missingIdAdd: "⚠ | Vui lòng nhập ID hoặc tag người dùng muốn thêm quyền admin",
+                        removed: "✓ | Đã xóa quyền admin của %1 người dùng:\n%2",
+                        notAdmin: "⚠ | %1 người dùng không có quyền admin:\n%2",
+                        missingIdRemove: "⚠ | Vui lòng nhập ID hoặc tag người dùng muốn xóa quyền admin",
+                        listAdmin: "♔ | Danh sách admin:\n%1"
+                },
+                en: {
+                        added: "✓ | Added admin role for %1 users:\n%2",
+                        alreadyAdmin: "\n⚠ | %1 users already have admin role:\n%2",
+                        missingIdAdd: "⚠ | Please enter ID or tag user to add admin role",
+                        removed: "✓ | Removed admin role of %1 users:\n%2",
+                        notAdmin: "⚠ | %1 users don't have admin role:\n%2",
+                        missingIdRemove: "⚠ | Please enter ID or tag user to remove admin role",
+                        listAdmin: "♔ | List of admins:\n%1"
                 }
+        },
 
-                const subCmd = args[0]?.toLowerCase();
-                const action = args[1]?.toLowerCase();
-                const targetID = args[2] || (ctx.message?.reply_to_message?.from?.id?.toString());
+        onStart: async function ({ message, args, usersData, event, getLang }) {
+                switch (args[0]) {
+                        case "add":
+                        case "-a": {
+                                if (args[1]) {
+                                        let uids = [];
+                                        if (Object.keys(event.mentions).length > 0)
+                                                uids = Object.keys(event.mentions);
+                                        else if (event.messageReply)
+                                                uids.push(event.messageReply.senderID);
+                                        else
+                                                uids = args.filter(arg => !isNaN(arg));
+                                        const notAdminIds = [];
+                                        const adminIds = [];
+                                        for (const uid of uids) {
+                                                if (config.adminBot.includes(uid))
+                                                        adminIds.push(uid);
+                                                else
+                                                        notAdminIds.push(uid);
+                                        }
 
-                const config = global.GoatBot.config;
-                config.premiumUsers = config.premiumUsers || [];
-                config.adminBot = config.adminBot || [];
-
-                if (!subCmd) {
-                        return message.reply(
-                                "👑 <b>Admin Control Panel</b>\n\n" +
-                                "• <code>/admin premium add &lt;userID&gt;</code> - Grant Premium (Level 1)\n" +
-                                "• <code>/admin premium remove &lt;userID&gt;</code> - Revoke Premium\n" +
-                                "• <code>/admin list</code> - List Premium users & Admins\n" +
-                                "• <code>/admin ban &lt;userID&gt;</code> - Ban user from bot\n" +
-                                "• <code>/admin unban &lt;userID&gt;</code> - Unban user",
-                                { parse_mode: "HTML" }
-                        );
-                }
-
-                if (subCmd === "list") {
-                        const premiumList = config.premiumUsers.join(", ") || "None";
-                        const adminList = config.adminBot.join(", ") || "None";
-                        const devList = config.devUsers.join(", ") || "None";
-
-                        return message.reply(
-                                `📋 <b>Bot Access Lists</b>\n\n` +
-                                `<b>Developers (Level 4):</b> ${devList}\n` +
-                                `<b>Bot Admins (Level 3):</b> ${adminList}\n` +
-                                `<b>Premium Users (Level 1):</b> ${premiumList}`,
-                                { parse_mode: "HTML" }
-                        );
-                }
-
-                if (subCmd === "premium") {
-                        if (!targetID) return message.reply("⚠ Please specify a target User ID or reply to a message.");
-                        if (action === "add") {
-                                if (!config.premiumUsers.includes(targetID)) {
-                                        config.premiumUsers.push(targetID);
-                                        return message.reply(`✅ Granted Premium access (Level 1) to User ID: <code>${targetID}</code>`, { parse_mode: "HTML" });
+                                        config.adminBot.push(...notAdminIds);
+                                        const getNames = await Promise.all(uids.map(uid => usersData.getName(uid).then(name => ({ uid, name }))));
+                                        writeFileSync(global.client.dirConfig, JSON.stringify(config, null, 2));
+                                        return message.reply(
+                                                (notAdminIds.length > 0 ? getLang("added", notAdminIds.length, getNames.map(({ uid, name }) => `• ${name} (${uid})`).join("\n")) : "")
+                                                + (adminIds.length > 0 ? getLang("alreadyAdmin", adminIds.length, adminIds.map(uid => `• ${uid}`).join("\n")) : "")
+                                        );
                                 }
-                                return message.reply(`User <code>${targetID}</code> is already a Premium user.`, { parse_mode: "HTML" });
+                                else
+                                        return message.reply(getLang("missingIdAdd"));
                         }
-                        if (action === "remove") {
-                                config.premiumUsers = config.premiumUsers.filter(id => id !== targetID);
-                                return message.reply(`🗑 Removed Premium access from User ID: <code>${targetID}</code>`, { parse_mode: "HTML" });
+                        case "remove":
+                        case "-r": {
+                                if (args[1]) {
+                                        let uids = [];
+                                        if (Object.keys(event.mentions).length > 0)
+                                                uids = Object.keys(event.mentions)[0];
+                                        else
+                                                uids = args.filter(arg => !isNaN(arg));
+                                        const notAdminIds = [];
+                                        const adminIds = [];
+                                        for (const uid of uids) {
+                                                if (config.adminBot.includes(uid))
+                                                        adminIds.push(uid);
+                                                else
+                                                        notAdminIds.push(uid);
+                                        }
+                                        for (const uid of adminIds)
+                                                config.adminBot.splice(config.adminBot.indexOf(uid), 1);
+                                        const getNames = await Promise.all(adminIds.map(uid => usersData.getName(uid).then(name => ({ uid, name }))));
+                                        writeFileSync(global.client.dirConfig, JSON.stringify(config, null, 2));
+                                        return message.reply(
+                                                (adminIds.length > 0 ? getLang("removed", adminIds.length, getNames.map(({ uid, name }) => `• ${name} (${uid})`).join("\n")) : "")
+                                                + (notAdminIds.length > 0 ? getLang("notAdmin", notAdminIds.length, notAdminIds.map(uid => `• ${uid}`).join("\n")) : "")
+                                        );
+                                }
+                                else
+                                        return message.reply(getLang("missingIdRemove"));
                         }
-                }
-
-                if (subCmd === "ban") {
-                        const banId = action || targetID;
-                        if (!banId) return message.reply("⚠ Please specify User ID to ban.");
-                        global.client.commandBanned = global.client.commandBanned || {};
-                        global.client.commandBanned[banId] = true;
-                        return message.reply(`🚫 Banned User ID <code>${banId}</code> from using the bot.`, { parse_mode: "HTML" });
-                }
-
-                if (subCmd === "unban") {
-                        const unbanId = action || targetID;
-                        if (!unbanId) return message.reply("⚠ Please specify User ID to unban.");
-                        if (global.client.commandBanned?.[unbanId]) {
-                                delete global.client.commandBanned[unbanId];
+                        case "list":
+                        case "-l": {
+                                const getNames = await Promise.all(config.adminBot.map(uid => usersData.getName(uid).then(name => ({ uid, name }))));
+                                return message.reply(getLang("listAdmin", getNames.map(({ uid, name }) => `• ${name} (${uid})`).join("\n")));
                         }
-                        return message.reply(`✅ Unbanned User ID <code>${unbanId}</code>.`, { parse_mode: "HTML" });
+                        default:
+                                return message.SyntaxError();
                 }
         }
 };

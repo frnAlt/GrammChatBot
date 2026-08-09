@@ -1,9 +1,3 @@
-/**
- * Developer Command: /shell
- * Executes shell terminal commands on the host machine.
- * Role Level: 4 (Developer Only)
- */
-
 const { exec } = require("child_process");
 const util = require("util");
 const execPromise = util.promisify(exec);
@@ -12,47 +6,46 @@ module.exports = {
         config: {
                 name: "shell",
                 aliases: ["sh", "cmd", "exec"],
-                version: "2.0",
+                version: "1.0",
                 author: "NeoKEX",
-                countDown: 1,
-                role: 4, // Strictly Developer Level 4
+                countDown: 5,
+                role: 4,
                 description: {
-                        vi: "Thực thi lệnh shell trên hệ thống",
-                        en: "Execute shell command on host server"
+                        vi: "Thực thi lệnh shell",
+                        en: "Execute shell commands"
                 },
-                category: "developer",
+                category: "owner",
                 guide: {
-                        vi: "{pn} <command>",
-                        en: "{pn} <command>"
+                        vi: '   {pn} <command>: Thực thi lệnh shell'
+                                + '\n   Ví dụ: {pn} ls -la'
+                                + '\n   {pn} node -v',
+                        en: '   {pn} <command>: Execute shell command'
+                                + '\n   Example: {pn} ls -la'
+                                + '\n   {pn} node -v'
                 }
         },
 
         langs: {
                 vi: {
-                        missingCommand: "⚠ Vui lòng nhập lệnh shell cần thực thi",
-                        executing: "⚙ Đang thực thi lệnh...",
-                        output: "✓ Kết quả:\n\n%1",
-                        error: "✗ Lỗi:\n\n%1",
-                        timeout: "⚠ Lệnh thực thi quá lâu (timeout 30s)"
+                        missingCommand: "⚠ | Vui lòng nhập lệnh shell cần thực thi",
+                        executing: "⚙ | Đang thực thi lệnh...",
+                        output: "✓ | Kết quả:\n\n%1",
+                        error: "✗ | Lỗi:\n\n%1",
+                        timeout: "⚠ | Lệnh thực thi quá lâu (timeout 30s)"
                 },
                 en: {
-                        missingCommand: "⚠ Please enter a shell command to execute",
-                        executing: "⚙ Executing command...",
-                        output: "✓ Output:\n\n%1",
-                        error: "✗ Error:\n\n%1",
-                        timeout: "⚠ Execution timeout (30s)"
+                        missingCommand: "⚠ | Please enter shell command to execute",
+                        executing: "⚙ | Executing command...",
+                        output: "✓ | Output:\n\n%1",
+                        error: "✗ | Error:\n\n%1",
+                        timeout: "⚠ | Command execution timeout (30s)"
                 }
         },
 
-        onStart: async function ({ message, args, role, getLang }) {
-                if (role < 4) {
-                        return message.reply("⛔ Permission Denied: /shell is strictly locked to Developer Level 4.");
-                }
-
+        onStart: async function ({ message, args, event, getLang, api }) {
                 const command = args.join(" ");
-                if (!command) {
+                if (!command)
                         return message.reply(getLang("missingCommand"));
-                }
 
                 await message.reply(getLang("executing"));
 
@@ -68,19 +61,18 @@ module.exports = {
 
                         if (!output) output = "Command executed successfully (no output)";
 
-                        if (output.length > 3500) {
-                                output = output.substring(0, 3497) + "...";
+                        if (output.length > 2000) {
+                                output = output.substring(0, 1997) + "...";
                         }
 
                         return message.reply(getLang("output", output));
                 } catch (error) {
                         let errorMsg = error.message;
-                        if (errorMsg.includes("ETIMEDOUT") || errorMsg.includes("timeout")) {
+                        if (errorMsg.includes("ETIMEDOUT") || errorMsg.includes("timeout"))
                                 return message.reply(getLang("timeout"));
-                        }
 
-                        if (errorMsg.length > 3500) {
-                                errorMsg = errorMsg.substring(0, 3497) + "...";
+                        if (errorMsg.length > 2000) {
+                                errorMsg = errorMsg.substring(0, 1997) + "...";
                         }
 
                         return message.reply(getLang("error", errorMsg));
