@@ -1,4 +1,4 @@
-const multiAccountManager = require("../../bot/login/multiAccountManager.js");
+const tokenManager = require("../../bot/telegram/tokenManager.js");
 
 module.exports = {
 	config: {
@@ -8,29 +8,25 @@ module.exports = {
 		countDown: 5,
 		role: 2, // Bot admin only
 		description: {
-			en: "Manage multiple accounts and check status"
+			en: "Manage multiple Telegram bot accounts/tokens and check status"
 		},
 		category: "system",
 		guide: {
-			en: "{pn} status - Check multi-account status\n{pn} switch - Switch to next account\n{pn} reset - Reset failed accounts"
+			en: "{pn} status - Check multi-token status\n{pn} switch - Rotate to next token"
 		}
 	},
 
 	langs: {
 		en: {
-			statusTitle: "📊 Multi-Account Status",
-			totalAccounts: "Total accounts: %1",
-			currentAccount: "Current account: %1",
-			availableAccounts: "Available accounts: %1",
-			failedAccounts: "Failed accounts: %1",
-			switchCount: "Switch count: %1",
-			canSwitch: "Can switch: %1",
-			switching: "🔄 Switching to next account...",
-			switchSuccess: "✅ Account switch initiated",
-			switchFailed: "❌ Failed to switch account",
-			resetSuccess: "✅ Failed accounts reset",
+			statusTitle: "📊 Telegram Multi-Token Status",
+			totalAccounts: "Total tokens: %1",
+			currentAccount: "Current token index: %1 (@%2)",
+			switchCount: "Rotation count: %1",
+			switching: "🔄 Rotating to next token...",
+			switchSuccess: "✅ Token rotated successfully",
+			switchFailed: "❌ Failed to rotate token (single token configured)",
 			noPermission: "❌ You don't have permission to use this command",
-			invalidUsage: "❌ Invalid usage. Use: status, switch, or reset"
+			invalidUsage: "❌ Invalid usage. Use: status or switch"
 		}
 	},
 
@@ -39,16 +35,13 @@ module.exports = {
 
 		switch (action) {
 			case "status": {
-				const stats = multiAccountManager.getStats();
+				const stats = tokenManager.getStats();
 				const statusMsg = [
 					getLang("statusTitle"),
 					"━━━━━━━━━━━━━━━",
-					getLang("totalAccounts", stats.totalAccounts),
-					getLang("currentAccount", stats.currentAccount || "None"),
-					getLang("availableAccounts", stats.availableAccounts.join(", ") || "None"),
-					getLang("failedAccounts", stats.failedAccounts.join(", ") || "None"),
-					getLang("switchCount", stats.switchCount),
-					getLang("canSwitch", stats.canSwitch ? "Yes" : "No (cooldown)"),
+					getLang("totalAccounts", stats.totalTokens),
+					getLang("currentAccount", stats.activeTokenIndex, stats.botInfo.username || "N/A"),
+					getLang("switchCount", stats.rotationCount),
 					"━━━━━━━━━━━━━━━"
 				].join("\n");
 				return await message.reply(statusMsg);
@@ -56,34 +49,12 @@ module.exports = {
 
 			case "switch": {
 				await message.reply(getLang("switching"));
-				const { switchToNextAccount } = global.GoatBot.reLoginBot ? 
-					require("../../bot/login/login.js") : { switchToNextAccount: null };
-				
-				if (global.switchToNextAccount) {
-					const result = await global.switchToNextAccount("Manual switch by admin");
-					if (result) {
-						return await message.reply(getLang("switchSuccess"));
-					} else {
-						return await message.reply(getLang("switchFailed"));
-					}
-				} else {
-					// Fallback: trigger account switch via global
-					multiAccountManager.isSwitching = true;
-					const nextAccount = multiAccountManager.nextAccount();
-					global.client.dirAccount = nextAccount;
-					
-					setTimeout(() => {
-						multiAccountManager.isSwitching = false;
-						global.GoatBot.reLoginBot();
-					}, 3000);
-					
+				const success = await tokenManager.rotateToken(null, "Manual switch requested by admin");
+				if (success) {
 					return await message.reply(getLang("switchSuccess"));
+				} else {
+					return await message.reply(getLang("switchFailed"));
 				}
-			}
-
-			case "reset": {
-				multiAccountManager.resetFailedAccounts();
-				return await message.reply(getLang("resetSuccess"));
 			}
 
 			default: {
@@ -92,3 +63,4 @@ module.exports = {
 		}
 	}
 };
+
