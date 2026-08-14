@@ -14,7 +14,7 @@ const log = require("./logger/log.js");
 const { isHexColor, colors } = require("./func/colors.js");
 const Prism = require("./func/prism.js");
 
-const { config } = global.GoatBot;
+// Dynamic config accessor to avoid uninitialized global.GoatBot errors at require time
 
 const word = [
         'A', 'Á', 'À', 'Ả', 'Ã', 'Ạ', 'a', 'á', 'à', 'ả', 'ã', 'ạ',
@@ -243,7 +243,8 @@ function getTime(timestamps, format) {
                 format = timestamps;
                 timestamps = undefined;
         }
-        return moment(timestamps).tz(config.timeZone).format(format);
+        const timeZone = global.GoatBot?.config?.timeZone || "Asia/Ho_Chi_Minh";
+        return moment(timestamps).tz(timeZone).format(format);
 }
 
 /**

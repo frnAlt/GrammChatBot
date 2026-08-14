@@ -26,7 +26,7 @@ const taskQueue = new TaskQueue(function (task, callback) {
 	}
 });
 
-const { creatingDashBoardData } = global.client.database;
+const { creatingDashBoardData } = global.client?.database || { creatingDashBoardData: [] };
 
 module.exports = async function (databaseType, dashBoardModel, fakeGraphql) {
 	let Dashboard = [];

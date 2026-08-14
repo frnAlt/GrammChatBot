@@ -27,7 +27,7 @@ const taskQueue = new TaskQueue(function (task, callback) {
         }
 });
 
-const { creatingUserData } = global.client.database;
+const { creatingUserData } = global.client?.database || { creatingUserData: [] };
 
 module.exports = async function (databaseType, userModel, api, fakeGraphql) {
         let Users = [];
@@ -237,7 +237,8 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                                 message: `The first argument (userID) must be a number, not ${typeof userID}`
                                         });
                                 }
-                                userInfo = userInfo || (await api.getUserInfo(userID))[userID];
+                                const fetchedInfo = api && typeof api.getUserInfo === "function" ? await api.getUserInfo(userID) : null;
+                                userInfo = userInfo || (fetchedInfo ? fetchedInfo[userID] : null) || { name: `User ${userID}`, gender: "UNKNOWN", vanity: "" };
                                 let userData = {
                                         userID,
                                         name: userInfo.name,
@@ -286,7 +287,8 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                                 });
                                         }
                                         const infoUser = await get_(userID);
-                                        updateInfoUser = updateInfoUser || (await api.getUserInfo(userID))[userID];
+                                        const fetchedInfo2 = api && typeof api.getUserInfo === "function" ? await api.getUserInfo(userID) : null;
+                                        updateInfoUser = updateInfoUser || (fetchedInfo2 ? fetchedInfo2[userID] : null) || { name: `User ${userID}`, gender: "UNKNOWN", vanity: "" };
 
                                         const newData = {
                                                 name: updateInfoUser.name,

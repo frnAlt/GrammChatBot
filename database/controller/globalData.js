@@ -26,7 +26,7 @@ const messageQueue = new TaskQueue(function (task, callback) {
 	}
 });
 
-const { creatingGlobalData } = global.client.database;
+const { creatingGlobalData } = global.client?.database || { creatingGlobalData: [] };
 
 module.exports = async function (databaseType, globalModel, fakeGraphql) {
 	let GlobalData = [];

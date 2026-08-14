@@ -182,7 +182,25 @@ module.exports = async function startDashboard(tokenManager) {
                 res.status(200).json({ status: "ok", polling: tokenManager?.isPolling || false, uptime: process.uptime() });
         });
 
-        const PORT = process.env.PORT || config.dashBoard?.port || 5000;
-        await server.listen(PORT);
-        utils.log.info("DASHBOARD", `Express Web Dashboard & AstrBot AI Control Panel running at http://localhost:${PORT}`);
+        let targetPort = parseInt(process.env.PORT || config.dashBoard?.port || 5000);
+        let started = false;
+        for (let attempt = 0; attempt < 5; attempt++) {
+                const currentPort = targetPort + attempt;
+                try {
+                        await new Promise((resolve, reject) => {
+                                const srv = server.listen(currentPort, () => resolve(srv))
+                                      .on('error', (err) => reject(err));
+                        });
+                        utils.log.info("DASHBOARD", `Express Web Dashboard & AstrBot AI Control Panel running at http://localhost:${currentPort}`);
+                        started = true;
+                        break;
+                } catch (e) {
+                        if (e.code === 'EADDRINUSE') continue;
+                        utils.log.warn("DASHBOARD", `Could not start Web Dashboard on port ${currentPort}: ${e.message}`);
+                        break;
+                }
+        }
+        if (!started) {
+                utils.log.warn("DASHBOARD", `Web Dashboard could not find an available port to listen on.`);
+        }
 };

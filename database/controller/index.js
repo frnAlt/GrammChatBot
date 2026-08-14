@@ -1,8 +1,13 @@
-const { graphQlQueryToJson } = require("graphql-query-to-json");
+let graphQlQueryToJson;
+try {
+	graphQlQueryToJson = require("graphql-query-to-json").graphQlQueryToJson;
+} catch (e) {
+	graphQlQueryToJson = (q) => typeof q === "string" ? { query: {} } : { query: q };
+}
 const ora = require("ora");
 const { log, getText } = global.utils;
 const { config } = global.GoatBot;
-const databaseType = config.database.type;
+let databaseType = config.database.type;
 
 // with add null if not found data
 function fakeGraphql(query, data, obj = {}) {
@@ -226,7 +231,8 @@ module.exports = async function (api) {
 				process.stderr.clearLine = defaultClearLine;
 				spin.stop();
 				log.err("SQLITE", getText("indexController", "connectMySQLError"), err);
-				process.exit();
+				log.warn("DATABASE", "Continuing with JSON database storage fallback.");
+				databaseType = "json";
 			}
 			break;
 		}

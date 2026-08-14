@@ -17,18 +17,27 @@ class TokenManager {
         }
 
         init(tokens = []) {
-                if (!Array.isArray(tokens) || tokens.length === 0) {
-                        throw new Error("No Telegram bot tokens provided in config.json (telegramTokens)");
-                }
-                // Filter out empty placeholder tokens
-                this.tokens = tokens.filter(t => t && typeof t === "string" && !t.includes("YOUR_TELEGRAM_BOT_TOKEN"));
-                if (this.tokens.length === 0) {
-                        log.warn("TOKEN_MANAGER", "No valid Telegram bot tokens configured in config.json (telegramTokens). Please add actual Bot tokens!");
-                        this.tokens = tokens;
-                }
-                this.currentIndex = 0;
-                log.info("TOKEN_MANAGER", `Initialized with ${this.tokens.length} token(s).`);
-        }
+		let envTokens = [];
+		if (process.env.TELEGRAM_TOKENS) {
+			try {
+				envTokens = JSON.parse(process.env.TELEGRAM_TOKENS);
+			} catch (e) {
+				envTokens = process.env.TELEGRAM_TOKENS.split(",").map(t => t.trim());
+			}
+		} else if (process.env.TELEGRAM_TOKEN) {
+			envTokens = [process.env.TELEGRAM_TOKEN.trim()];
+		}
+
+		const combined = [...envTokens, ...(Array.isArray(tokens) ? tokens : [])];
+		// Filter out empty placeholder tokens
+		this.tokens = combined.filter(t => t && typeof t === "string" && !t.includes("YOUR_TELEGRAM_BOT_TOKEN"));
+		if (this.tokens.length === 0) {
+			log.warn("TOKEN_MANAGER", "No valid Telegram bot tokens configured in config.json or process.env. Please add actual Bot tokens!");
+			this.tokens = combined.length > 0 ? combined : tokens;
+		}
+		this.currentIndex = 0;
+		log.info("TOKEN_MANAGER", `Initialized with ${this.tokens.length} token(s).`);
+	}
 
         getCurrentToken() {
                 return this.tokens[this.currentIndex] || "";

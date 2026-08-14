@@ -22,6 +22,20 @@ const spinner = [
 let count = 0;
 
 module.exports = async function (api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData, createLine) {
+	if (api && api.globalData && !globalData) {
+		threadsData = api.threadsData;
+		usersData = api.usersData;
+		dashBoardData = api.dashBoardData;
+		globalData = api.globalData;
+	}
+	if (!globalData || typeof globalData.get !== "function") {
+		globalData = global.db?.globalData || { get: async () => [], getAll: async () => [] };
+	}
+	if (!threadsData) threadsData = global.db?.threadsData || { get: async (id) => ({ threadID: id }), getAll: async () => [] };
+	if (!usersData) usersData = global.db?.usersData || { get: async (id) => ({ userID: id }), getAll: async () => [] };
+	if (!dashBoardData) dashBoardData = global.db?.dashBoardData || { get: async () => ({}), getAll: async () => [] };
+	if (typeof createLine !== "function") createLine = (name) => `LOAD ${name}`;
+
 	/* { CHECK ORIGIN CODE } */
 
 	const aliasesData = await globalData.get('setalias', 'data', []);
@@ -111,6 +125,9 @@ module.exports = async function (api, threadModel, userModel, dashBoardModel, gl
 				}
 
 				// —————————————— CHECK CONTENT SCRIPT —————————————— //
+				if (!global.temp) global.temp = {};
+				if (!global.temp.contentScripts) global.temp.contentScripts = { cmds: {}, events: {} };
+				if (!global.temp.contentScripts[folderModules]) global.temp.contentScripts[folderModules] = {};
 				global.temp.contentScripts[folderModules][file] = contentFile;
 
 
@@ -196,14 +213,18 @@ module.exports = async function (api, threadModel, userModel, dashBoardModel, gl
 				if (onEvent)
 					GoatBot.onEvent.push(commandName);
 				// ———————————————— CHECK ONANYEVENT ———————————————— //
-				if (onAnyEvent)
+				if (onAnyEvent) {
+					if (!GoatBot.onAnyEvent) GoatBot.onAnyEvent = [];
 					GoatBot.onAnyEvent.push(commandName);
+				}
 				// —————————————— IMPORT TO GLOBALGOAT —————————————— //
 				GoatBot[setMap].set(commandName.toLowerCase(), command);
 				commandLoadSuccess++;
 				// ————————————————— COMPARE COMMAND (removed in open source) ————————————————— //
 
-				global.GoatBot[folderModules == "cmds" ? "commandFilesPath" : "eventCommandsFilesPath"].push({
+				const arrayKey = folderModules == "cmds" ? "commandFilesPath" : "eventCommandsFilesPath";
+				if (!global.GoatBot[arrayKey]) global.GoatBot[arrayKey] = [];
+				global.GoatBot[arrayKey].push({
 					// filePath: pathCommand,
 					filePath: path.normalize(pathCommand),
 					commandName: [commandName, ...validAliases]

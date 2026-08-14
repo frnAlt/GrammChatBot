@@ -41,8 +41,12 @@ global.GoatBot = {
         aliases: new Map(),
         onChat: [],
         onEvent: [],
+        onAnyEvent: [],
+        onFirstChat: [],
         onReply: new TTLMap({ ttl: 30 * 60 * 1000, maxSize: 500, cleanupInterval: 60000 }),
         onReaction: new TTLMap({ ttl: 30 * 60 * 1000, maxSize: 500, cleanupInterval: 60000 }),
+        commandFilesPath: [],
+        eventCommandsFilesPath: [],
         config,
         configCommands,
         envCommands: configCommands.envCommands || {},
@@ -75,7 +79,13 @@ global.client = {
         dirConfig,
         dirConfigCommands,
         countDown: {},
-        cache: {}
+        cache: {},
+        database: {
+                creatingThreadData: [],
+                creatingUserData: [],
+                creatingDashBoardData: [],
+                creatingGlobalData: []
+        }
 };
 
 // Memory Manager for 512MB RAM constraints (Render/Railway)
@@ -113,6 +123,10 @@ const memoryManager = new MemoryManager();
                 // 1. Initialize Auto Cleanup Cron Job (every 30 minutes)
                 const { initAutoCleanup } = require("./bot/cron/autoCleanup.js");
                 initAutoCleanup(config);
+
+                // Initialize Database Controllers
+                const initDB = require("./database/controller/index.js");
+                await initDB(null);
 
                 // 2. Load Commands and Events
                 const loadScripts = require("./bot/login/loadScripts.js");

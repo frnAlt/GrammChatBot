@@ -26,7 +26,7 @@ const taskQueue = new TaskQueue(function (task, callback) {
         }
 });
 
-const { creatingThreadData } = global.client.database;
+const { creatingThreadData } = global.client?.database || { creatingThreadData: [] };
 
 module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
         let Threads = [];
@@ -191,7 +191,7 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                                 message: `The first argument (threadID) must be a number, not a ${typeof threadID}`
                                         });
                                 }
-                                threadInfo = threadInfo || await api.getThreadInfo(threadID);
+                                threadInfo = threadInfo || (api && typeof api.getThreadInfo === "function" ? await api.getThreadInfo(threadID) : null) || { threadName: "Telegram Chat", userInfo: [], adminIDs: [] };
                                 const { threadName, userInfo, adminIDs } = threadInfo;
                                 const newAdminsIDs = adminIDs.reduce(function (_, b) {
                                         _.push(b.id);
@@ -267,7 +267,7 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                                 }));
                                         }
                                         const threadInfo = await get_(threadID);
-                                        newThreadInfo = newThreadInfo || await api.getThreadInfo(threadID);
+                                        newThreadInfo = newThreadInfo || (api && typeof api.getThreadInfo === "function" ? await api.getThreadInfo(threadID) : null) || { threadName: "Telegram Chat", userInfo: [], adminIDs: [] };
                                         const { userInfo, adminIDs, nicknames } = newThreadInfo;
                                         let oldMembers = threadInfo.members;
                                         const newMembers = [];
