@@ -10,7 +10,7 @@
   },
   "language": "en",
   "notesLanguage": "change to your language with ISO 639-1 code, available languages: vi (Vietnamese), en (English)",
-  "nickNameBot": "GrammChatBot Telegram",
+  "nickNameBot": "GrammChatBot",
   "prefix": "/",
   "noPrefix": true,
   "noPrefixNotes": "When true, Bot Admins (role 2) and Developers (role 4) can run commands without the prefix",
@@ -19,20 +19,20 @@
     "ignoreCommand": []
   },
   "adminBot": [
-    "123456789"
+    "5836861332"
   ],
   "premiumUsers": [
-    "123456789"
+    "5836861332"
   ],
   "devUsers": [
-    "123456789"
+    "5836861332"
   ],
   "notes_premiumUsers": "List of Telegram User IDs with premium access (role 3)",
   "notes_devUsers": "List of Telegram Developer IDs with full access (role 4 - required for /shell and /eval)",
   "whiteListMode": {
     "enable": false,
     "whiteListIds": [
-      "123456789"
+      "5836861332"
     ]
   },
   "whiteListModeThread": {
