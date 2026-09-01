@@ -26,4 +26,12 @@ database/data/*.sqlite
 .DS_Store
 Thumbs.db
 tmp/
+temp/
+cache/
+**/cache/
+**/trash/
+**/old/
+*.tmp
+*.bak
+*.txt.bak
 scratch/
