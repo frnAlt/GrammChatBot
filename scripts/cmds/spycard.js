@@ -105,7 +105,7 @@ module.exports = {
       let avatar = null;
       try {
         avatar = await Canvas.loadImage(
-          `https://graph.facebook.com/${uid}/picture?height=512&width=512&access_token=350685531728|62f8ce9f74b12f84c123cc23437a4a32`
+          `https://api.dicebear.com/7.x/bottts/png?seed={uid}&size=512`
         );
       } catch {}
 

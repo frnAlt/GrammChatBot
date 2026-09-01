@@ -63,7 +63,7 @@ module.exports = {
         "User";
 
       const avatarURL =
-        `https://graph.facebook.com/${uid}/picture` +
+        `https://api.dicebear.com/7.x/bottts/png?seed={uid}&size=512` +
         `?width=720&height=720` +
         `&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
 
