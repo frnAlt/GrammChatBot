@@ -3,8 +3,8 @@ const { writeFileSync } = require("fs-extra");
 
 module.exports = {
   config: {
-    name: "whitelist",
-    aliases: ["wl"],
+    name: "wl",
+    aliases: ["whlist", "whitelistmode"],
     version: "2.0",
     author: "frnAlt & Gtajisan",
     countDown: 5,

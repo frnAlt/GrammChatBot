@@ -1,56 +1,78 @@
-/**
- * AI Image Upscaling Command: /upscale (/4k /hd)
- * Upscales and enhances image quality, streaming the output directly to Telegram.
- */
-
 const axios = require("axios");
 
 module.exports = {
-        config: {
-                name: "upscale",
-                aliases: ["4k", "hd", "enhance"],
-                version: "2.0",
-                author: "frnAlt & Gtajisan",
-                countDown: 10,
-                role: 0,
-                description: {
-                        vi: "Nâng cấp chất lượng ảnh lên 4K / HD",
-                        en: "Upscale and enhance image quality to 4K / HD"
-                },
-                category: "ai-tools",
-                guide: {
-                        vi: "Reply 1 bức ảnh với lệnh {pn}",
-                        en: "Reply to an image with {pn}"
-                }
-        },
+  config: {
+    name: "upscale",
+    aliases: ["hd", "enhance", "remini", "upscaler"],
+    version: "3.0.0",
+    author: "frnAlt",
+    countDown: 10,
+    role: 0,
+    shortDescription: {
+      en: "Upscale and enhance image resolution to 4K"
+    },
+    longDescription: {
+      en: "Enhance and upscale photos to high definition 4K resolution using Toshiro 4K Upscale AI"
+    },
+    category: "ai-image",
+    guide: {
+      en: "{pn} <image_url>\n{pn} (reply to an image)"
+    }
+  },
 
-        onStart: async function ({ ctx, message, event }) {
-                const replyObj = event.telegramCtx?.message?.reply_to_message;
+  onStart: async function ({ api, args, message, event, commandName }) {
+    const imageUrl = await global.utils.extractImageUrl(args, event, api);
 
-                if (!replyObj || (!replyObj.photo && !replyObj.document)) {
-                        return message.reply("📸 Please reply to an image message with /upscale to enhance it.");
-                }
+    if (!imageUrl) {
+      const prefix = global.GoatBot?.config?.prefix || "/";
+      return message.reply(
+        `🔍 Please reply to an image or provide an image URL to upscale.\n\n💡 Example: Reply to a photo with ${prefix}${commandName}`
+      );
+    }
 
-                await message.reply("🔍 Upscaling image to 4K resolution... Please wait.");
+    if (api.setMessageReaction) {
+      api.setMessageReaction("⏳", event.messageID, () => {}, true);
+    }
 
-                try {
-                        const photoArray = replyObj.photo;
-                        const fileId = photoArray ? photoArray[photoArray.length - 1].file_id : replyObj.document.file_id;
-                        const fileInfo = await ctx.api.getFile(fileId);
-                        const inputImgUrl = `https://api.telegram.org/file/bot${ctx.api.token}/${fileInfo.file_path}`;
+    try {
+      let finalStream = null;
 
-                        // Use upscale stream endpoint
-                        const upscaleUrl = `https://image.pollinations.ai/prompt/masterpiece%20hyperrealistic%20high%20resolution%204k%20detail?image=${encodeURIComponent(inputImgUrl)}&width=2048&height=2048`;
+      // 1. Primary: Toshiro 4K Upscale API
+      try {
+        const apiUrl = `https://toshiro-api-editz6t9.vercel.app/api/image/4k?imgUrl=${encodeURIComponent(imageUrl)}`;
+        const res = await axios.get(apiUrl, { timeout: 60000 });
 
-                        const response = await axios.get(upscaleUrl, { responseType: "stream" });
-
-                        await ctx.replyWithPhoto({ source: response.data }, {
-                                caption: "🔍 <b>4K Upscaled Image</b>",
-                                parse_mode: "HTML",
-                                reply_to_message_id: ctx.message?.message_id
-                        });
-                } catch (err) {
-                        message.reply(`❌ Failed to upscale image: ${err.message}`);
-                }
+        if (res.data && res.data.success && res.data.result?.upscaled) {
+          finalStream = await global.utils.getStreamFromURL(res.data.result.upscaled, "upscale_4k.jpg");
         }
+      } catch (err) {
+        console.warn("Toshiro 4K primary failed, trying fallback:", err.message);
+      }
+
+      // 2. Fallback to Pollinations 4K Enhancement
+      if (!finalStream) {
+        const fallbackUrl = `https://image.pollinations.ai/prompt/masterpiece%20hyperrealistic%20high%20resolution%204k%20detail?image=${encodeURIComponent(imageUrl)}&width=2048&height=2048&nologo=true`;
+        finalStream = await global.utils.getStreamFromURL(fallbackUrl, "upscale_4k.png");
+      }
+
+      if (!finalStream) {
+        throw new Error("Failed to process upscaled image stream.");
+      }
+
+      if (api.setMessageReaction) {
+        api.setMessageReaction("✅", event.messageID, () => {}, true);
+      }
+
+      await message.reply({
+        body: `🔍 Image successfully upscaled to 4K Ultra HD! ✨`,
+        attachment: finalStream
+      });
+    } catch (error) {
+      console.error("4K Upscale error:", error);
+      if (api.setMessageReaction) {
+        api.setMessageReaction("❌", event.messageID, () => {}, true);
+      }
+      return message.reply(`❌ Failed to upscale image: ${error.message || error}`);
+    }
+  }
 };

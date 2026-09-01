@@ -897,6 +897,73 @@ class GoatBotApis {
         }
 }
 
+async function extractImageUrl(args = [], event = {}, api = null) {
+        let imageUrl = Array.isArray(args) ? args.find(arg => typeof arg === "string" && arg.startsWith("http")) : null;
+        if (imageUrl) return imageUrl;
+
+        async function resolveFileUrl(att) {
+                if (!att) return null;
+                if (typeof att.url === "string" && (att.url.startsWith("http://") || att.url.startsWith("https://"))) {
+                        return att.url;
+                }
+                const fileId = att.file_id || att.url;
+                if (fileId && api?.getFileUrl) {
+                        return await api.getFileUrl(fileId);
+                }
+                if (fileId && event?.telegramCtx?.api) {
+                        try {
+                                const file = await event.telegramCtx.api.getFile(fileId);
+                                return `https://api.telegram.org/file/bot${event.telegramCtx.api.token}/${file.file_path}`;
+                        } catch (e) {}
+                }
+                return null;
+        }
+
+        if (event.messageReply?.attachments?.length > 0) {
+                const att = event.messageReply.attachments.find(a => a.type === "photo" || a.type === "image" || a.type === "file");
+                const resolved = await resolveFileUrl(att);
+                if (resolved) return resolved;
+        }
+
+        if (event.attachments?.length > 0) {
+                const att = event.attachments.find(a => a.type === "photo" || a.type === "image" || a.type === "file");
+                const resolved = await resolveFileUrl(att);
+                if (resolved) return resolved;
+        }
+
+        if (event.mentions && Object.keys(event.mentions).length > 0) {
+                const targetUID = Object.keys(event.mentions)[0];
+                if (api?.getUserAvatarUrl) return await api.getUserAvatarUrl(targetUID);
+                if (api?.getUserInfo) {
+                        const info = await api.getUserInfo(targetUID);
+                        if (info[targetUID]?.avatar || info[targetUID]?.thumbUrl) return info[targetUID].avatar || info[targetUID].thumbUrl;
+                }
+                return `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(targetUID)}&size=512`;
+        }
+
+        if (event.messageReply?.senderID) {
+                const targetUID = event.messageReply.senderID;
+                if (api?.getUserAvatarUrl) return await api.getUserAvatarUrl(targetUID);
+                if (api?.getUserInfo) {
+                        const info = await api.getUserInfo(targetUID);
+                        if (info[targetUID]?.avatar || info[targetUID]?.thumbUrl) return info[targetUID].avatar || info[targetUID].thumbUrl;
+                }
+                return `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(targetUID)}&size=512`;
+        }
+
+        if (event.senderID) {
+                const targetUID = event.senderID;
+                if (api?.getUserAvatarUrl) return await api.getUserAvatarUrl(targetUID);
+                if (api?.getUserInfo) {
+                        const info = await api.getUserInfo(targetUID);
+                        if (info[targetUID]?.avatar || info[targetUID]?.thumbUrl) return info[targetUID].avatar || info[targetUID].thumbUrl;
+                }
+                return `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(targetUID)}&size=512`;
+        }
+
+        return null;
+}
+
 const utils = {
         CustomError,
         TaskQueue,
@@ -933,13 +1000,15 @@ const utils = {
         getStreamsFromAttachment,
         getStreamFromURL,
         getStreamFromUrl: getStreamFromURL,
+        extractImageUrl,
         Prism,
         translate,
         shortenURL,
         uploadZippyshare,
         uploadImgbb,
 
-        GoatBotApis
+        GoatBotApis,
+        ...require("./func")
 };
 
 module.exports = utils;

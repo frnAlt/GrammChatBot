@@ -68,6 +68,8 @@ module.exports = async function (api, threadModel, userModel, dashBoardModel, gl
 			typeEnvCommand = "envEvents";
 			setMap = "eventCommands";
 		}
+		if (!GoatBot[setMap]) GoatBot[setMap] = new Map();
+		if (!GoatBot.aliases) GoatBot.aliases = new Map();
 
 		const fullPathModules = path.normalize(process.cwd() + `/scripts/${folderModules}`);
 		const Files = readdirSync(fullPathModules)
@@ -91,6 +93,20 @@ module.exports = async function (api, threadModel, userModel, dashBoardModel, gl
 					allPackage = allPackage.map(p => p.match(/[`'"]([^`'"]+)[`'"]/)[1])
 						.filter(p => p.indexOf("/") !== 0 && p.indexOf("./") !== 0 && p.indexOf("../") !== 0 && p.indexOf(__dirname) !== 0);
 					for (let packageName of allPackage) {
+						if (packageName.startsWith("node:")) {
+							packageName = packageName.slice(5);
+						}
+						if (
+							require("module").builtinModules.includes(packageName) ||
+							packageName.startsWith("@cass") ||
+							packageName.startsWith("@defs") ||
+							packageName.startsWith("@root") ||
+							packageName.startsWith("cassidy-styler") ||
+							packageName.startsWith("output-cassidy") ||
+							packageName.startsWith("fca-liane-utils")
+						) {
+							continue;
+						}
 						// @user/abc => @user/abc
 						// @user/abc/dist/xyz.js => @user/abc
 						// @user/abc/dist/xyz => @user/abc
@@ -98,6 +114,10 @@ module.exports = async function (api, threadModel, userModel, dashBoardModel, gl
 							packageName = packageName.split('/').slice(0, 2).join('/');
 						else
 							packageName = packageName.split('/')[0];
+
+						if (require("module").builtinModules.includes(packageName)) {
+							continue;
+						}
 
 						if (!packageAlready.includes(packageName)) {
 							packageAlready.push(packageName);
@@ -131,20 +151,92 @@ module.exports = async function (api, threadModel, userModel, dashBoardModel, gl
 				global.temp.contentScripts[folderModules][file] = contentFile;
 
 
-				const command = require(pathCommand);
+				let command = require(pathCommand);
+				if (command.default) {
+					command = command.default;
+				}
 				command.location = pathCommand;
+
+				// Normalize meta into config if needed (Cassidy / Floppa format)
+				if (command.meta && !command.config) {
+					command.config = {
+						name: command.meta.name,
+						version: command.meta.version || "1.0.0",
+						author: command.meta.author || command.meta.credits || "Floppa Engine",
+						cooldowns: command.meta.waitingTime || command.meta.cooldown || 5,
+						role: command.meta.role !== undefined ? command.meta.role : (command.meta.hasPermssion || 0),
+						description: command.meta.description || "No description provided.",
+						category: command.meta.category || "General",
+						guide: { en: command.meta.usage || `{p}${command.meta.name}` },
+						aliases: command.meta.otherNames || command.meta.aliases || []
+					};
+				}
+
 				const configCommand = command.config;
-				const commandName = configCommand.name;
-				// ——————————————— CHECK SYNTAXERROR ——————————————— //
 				if (!configCommand)
 					throw new Error(`config of ${text} undefined`);
 				if (!configCommand.category)
-					throw new Error(`category of ${text} undefined`);
-				if (!commandName)
+					configCommand.category = "General";
+				if (!configCommand.name)
 					throw new Error(`name of ${text} undefined`);
-				if (!command.onStart)
-					throw new Error(`onStart of ${text} undefined`);
-				if (typeof command.onStart !== "function")
+
+				const commandName = configCommand.name.toLowerCase();
+
+				// Normalize entry and helper handlers into onStart/onReply/onReaction/onEvent
+				if (!command.onStart && (command.entry || command.run || command.onCall)) {
+					const entryHandler = command.entry || command.run || command.onCall;
+					command.onStart = async function (ctx) {
+						const { api, event, args, message, usersData, threadsData, globalData } = ctx;
+						const input = event.input || {
+							body: event.body,
+							args,
+							senderID: event.senderID,
+							threadID: event.threadID,
+							messageID: event.messageID,
+							sid: event.senderID,
+							tid: event.threadID
+						};
+						const output = event.output || {
+							reply: (text, opt) => message.reply(text, opt),
+							send: (text, opt) => message.send(text, opt),
+							react: (emoji) => api?.setMessageReaction ? api.setMessageReaction(emoji, event.messageID) : null
+						};
+						return entryHandler({
+							...ctx,
+							input,
+							output,
+							usersDB: usersData,
+							threadsDB: threadsData,
+							globalDB: globalData
+						});
+					};
+				}
+
+				if (!command.onReply && (command.reply || command.handleReply)) {
+					const replyHandler = command.reply || command.handleReply;
+					command.onReply = async function (ctx) {
+						return replyHandler(ctx);
+					};
+				}
+
+				if (!command.onReaction && (command.react || command.handleReaction)) {
+					const reactHandler = command.react || command.handleReaction;
+					command.onReaction = async function (ctx) {
+						return reactHandler(ctx);
+					};
+				}
+
+				if (!command.onEvent && (command.event || command.handleEvent)) {
+					const eventHandler = command.event || command.handleEvent;
+					command.onEvent = async function (ctx) {
+						return eventHandler(ctx);
+					};
+				}
+
+				// ——————————————— CHECK SYNTAXERROR ——————————————— //
+				if (!command.onStart && folderModules == "cmds")
+					throw new Error(`onStart or entry of ${text} undefined`);
+				if (command.onStart && typeof command.onStart !== "function")
 					throw new Error(`onStart of ${text} must be a function`);
 				if (GoatBot[setMap].has(commandName))
 					throw new Error(`${text} "${commandName}" already exists with file "${removeHomeDir(GoatBot[setMap].get(commandName).location || "")}"`);

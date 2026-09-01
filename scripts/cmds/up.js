@@ -13,8 +13,8 @@ process.stdout.clearLine = process.stdout.clearLine || function () {};
 
 module.exports = {
   config: {
-    name: "uptime",
-    aliases: ["runtime", "up"],
+    name: "up",
+    aliases: ["runtime", "uptime", "floppauptime"],
     version: "1.10",
     author: "NZ R",
     countDown: 5,

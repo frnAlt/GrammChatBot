@@ -22,6 +22,9 @@ const TTLMap = require("./func/TTLMap.js");
 const utils = require("./utils.js");
 global.utils = utils;
 
+// Universal module resolver for aliases and TypeScript/ESM transpilation
+require("./func/moduleResolver.js");
+
 const dirConfig = path.normalize(`${__dirname}/config.json`);
 const dirConfigCommands = path.normalize(`${__dirname}/configCommands.json`);
 
@@ -55,6 +58,10 @@ global.GoatBot = {
         botID: null,
         botInfo: null
 };
+
+// Aliases for multi-engine compatibility
+global.FloppaBot = global.GoatBot;
+global.Cassidy = global.GoatBot;
 
 global.db = {
         allThreadData: [],

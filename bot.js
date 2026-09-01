@@ -1,7 +1,5 @@
-/**
- * Core Telegram Bot Engine (bot.js)
- * Integrates grammY update stream with system/api-adapter.js and /includes system listeners
- */
+// Universal module resolver for aliases and TypeScript/ESM transpilation
+require("./func/moduleResolver.js");
 
 const { createFcaApiWrapper, createFcaEventObject } = require("./system/api-adapter.js");
 const { getUserRole, canUseCommand } = require("./bot/telegram/handlerTelegram.js");
@@ -74,18 +72,26 @@ async function handleTelegramEvent(ctx) {
         let args = [];
         let isCommand = false;
 
-        if (event.body.startsWith(prefix)) {
-                const rawCmd = event.body.slice(prefix.length).trim().split(/\s+/);
-                commandName = rawCmd.shift().toLowerCase();
-                args = rawCmd;
-                isCommand = true;
-        } else if (config.noPrefix && (role === 3 || role === 4)) {
-                const rawCmd = event.body.trim().split(/\s+/);
-                const testName = rawCmd[0]?.toLowerCase();
-                if (GoatBot.commands.has(testName) || GoatBot.aliases.has(testName)) {
-                        commandName = testName;
-                        args = rawCmd.slice(1);
+        if (event.body && typeof event.body === "string") {
+                const trimmedBody = event.body.trim();
+                if (trimmedBody.startsWith(prefix)) {
+                        const rawCmd = trimmedBody.slice(prefix.length).trim().split(/\s+/);
+                        commandName = rawCmd.shift().toLowerCase();
+                        args = rawCmd;
                         isCommand = true;
+                } else {
+                        const rawCmd = trimmedBody.split(/\s+/);
+                        const testName = rawCmd[0]?.toLowerCase();
+                        let targetCmdName = testName;
+                        if (GoatBot.aliases.has(testName)) {
+                                targetCmdName = GoatBot.aliases.get(testName);
+                        }
+                        const targetCmd = GoatBot.commands.get(targetCmdName);
+                        if (targetCmd && (targetCmd.noPrefix || targetCmd.config?.noPrefix || (config.noPrefix && (role === 3 || role === 4)))) {
+                                commandName = targetCmdName;
+                                args = rawCmd.slice(1);
+                                isCommand = true;
+                        }
                 }
         }
 
@@ -119,21 +125,45 @@ async function handleTelegramEvent(ctx) {
         // Language translation helper
         const cmdGetLang = (key, ...args) => getLang(command, key, ...args);
 
-        // Execute Command onStart in native Goatbot FCA syntax
+        const input = event.input || {
+                body: event.body,
+                args,
+                arguments: args,
+                senderID: event.senderID,
+                threadID: event.threadID,
+                messageID: event.messageID,
+                sid: event.senderID,
+                tid: event.threadID
+        };
+        const output = event.output || {
+                reply: (text, options) => message.reply(text, options),
+                send: (text, options) => message.send(text, options),
+                unsend: (msgID) => message.unsend(msgID),
+                react: (emoji) => message.react(emoji),
+                reaction: (emoji) => message.react(emoji)
+        };
+
+        // Execute Command onStart in native Goatbot FCA / Cassidy syntax
         try {
                 log.info("EXECUTE_CMD", `[User: ${event.senderID} | Thread: ${event.threadID}] /${commandName}`);
                 await command.onStart({
                         api,
                         event,
                         args,
+                        arguments: args,
                         message,
+                        input,
+                        output,
                         role,
                         commandName,
                         getLang: cmdGetLang,
                         threadsData: db.threadsData,
                         usersData: db.usersData,
                         dashBoardData: db.dashBoardData,
-                        globalData: db.globalData
+                        globalData: db.globalData,
+                        usersDB: db.usersData,
+                        threadsDB: db.threadsData,
+                        globalDB: db.globalData
                 });
         } catch (err) {
                 log.error("COMMAND_ERROR", `Failed executing /${commandName}: ${err.stack || err.message}`);

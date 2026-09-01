@@ -274,6 +274,42 @@ function createFcaApiWrapper(ctx) {
                 },
 
                 /**
+                 * Returns full Telegram download URL for a file_id.
+                 */
+                getFileUrl: async function (fileId) {
+                        try {
+                                if (!fileId) return null;
+                                const file = await botApi.getFile(fileId);
+                                if (file && file.file_path) {
+                                        return `https://api.telegram.org/file/bot${botApi.token}/${file.file_path}`;
+                                }
+                                return null;
+                        } catch (err) {
+                                return null;
+                        }
+                },
+
+                /**
+                 * Returns avatar URL for a user ID.
+                 */
+                getUserAvatarUrl: async function (userID) {
+                        try {
+                                const targetUser = Array.isArray(userID) ? userID[0] : userID;
+                                if (botApi.getUserProfilePhotos) {
+                                        const photos = await botApi.getUserProfilePhotos(targetUser, { limit: 1 });
+                                        if (photos && photos.total_count > 0 && photos.photos[0]?.length > 0) {
+                                                const fileId = photos.photos[0][photos.photos[0].length - 1].file_id;
+                                                const file = await botApi.getFile(fileId);
+                                                if (file && file.file_path) {
+                                                        return `https://api.telegram.org/file/bot${botApi.token}/${file.file_path}`;
+                                                }
+                                        }
+                                }
+                        } catch (e) {}
+                        return `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(userID)}&size=512`;
+                },
+
+                /**
                  * Returns current bot user ID.
                  */
                 getCurrentUserID: function () {
@@ -327,11 +363,21 @@ function createFcaEventObject(ctx) {
 
         if (msg.reply_to_message) {
                 const replyMsg = msg.reply_to_message;
+                const replyPhoto = replyMsg.photo ? replyMsg.photo[replyMsg.photo.length - 1] : null;
+                const replyDoc = replyMsg.document || null;
+                const replyAttachments = [];
+
+                if (replyPhoto) {
+                        replyAttachments.push({ type: "photo", url: replyPhoto.file_id, file_id: replyPhoto.file_id });
+                } else if (replyDoc) {
+                        replyAttachments.push({ type: "file", url: replyDoc.file_id, file_id: replyDoc.file_id, filename: replyDoc.file_name });
+                }
+
                 event.messageReply = {
                         messageID: replyMsg.message_id,
                         senderID: replyMsg.from?.id?.toString() || "",
                         body: replyMsg.text || replyMsg.caption || "",
-                        attachments: replyMsg.photo ? [{ type: "photo", file_id: replyMsg.photo[replyMsg.photo.length - 1].file_id }] : []
+                        attachments: replyAttachments
                 };
         }
 

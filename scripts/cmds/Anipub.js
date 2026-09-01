@@ -5,7 +5,7 @@ module.exports = {
 
   config: {
 
-    name: "anime",
+    name: "anipub",
 
     aliases: ["anipub", "watchanime"],
 

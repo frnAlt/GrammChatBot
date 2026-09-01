@@ -3,7 +3,7 @@ const { GoatBotApis } = global.utils;
 module.exports = {
 	config: {
 		name: "texttoimage",
-		aliases: ["midjourney", "openjourney", "text2image"],
+		aliases: ["txt2img", "openjourney", "text2image"],
 		version: "1.3",
 		author: "NTKhang",
 		countDown: 5,

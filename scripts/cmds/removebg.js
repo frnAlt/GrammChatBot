@@ -1,56 +1,99 @@
-/**
- * AI Background Removal Command: /removebg (/nobg /bgremove)
- * Removes background from replied image and streams transparent image output directly.
- */
-
 const axios = require("axios");
+const fs = require("fs-extra");
+const path = require("path");
 
 module.exports = {
-        config: {
-                name: "removebg",
-                aliases: ["nobg", "bgremove", "rbg"],
-                version: "2.0",
-                author: "frnAlt & Gtajisan",
-                countDown: 10,
-                role: 0,
-                description: {
-                        vi: "Xóa nền bức ảnh (Stream trực tiếp)",
-                        en: "Remove background from an image (Direct Stream)"
-                },
-                category: "ai-tools",
-                guide: {
-                        vi: "Reply 1 bức ảnh với lệnh {pn}",
-                        en: "Reply to an image with {pn}"
-                }
-        },
+  config: {
+    name: "removebg",
+    aliases: ["bgremove"],
+    version: "3.0.0",
+    author: "frnAlt",
+    countDown: 10,
+    role: 0,
+    shortDescription: {
+      en: "Remove image background and export transparent PNG"
+    },
+    longDescription: {
+      en: "Automatically removes background from replied photos or URLs using Toshiro Background Remover API"
+    },
+    category: "ai-image",
+    guide: {
+      en: "{pn} <image_url>\n{pn} (reply to an image)"
+    }
+  },
 
-        onStart: async function ({ ctx, message, event }) {
-                const replyObj = event.telegramCtx?.message?.reply_to_message;
+  onStart: async function ({ api, args, message, event, commandName }) {
+    const imageUrl = await global.utils.extractImageUrl(args, event, api);
 
-                if (!replyObj || (!replyObj.photo && !replyObj.document)) {
-                        return message.reply("✂ Please reply to an image message with /removebg");
-                }
+    if (!imageUrl) {
+      const prefix = global.GoatBot?.config?.prefix || "/";
+      return message.reply(
+        `✂️ Please reply to an image or provide an image URL to remove its background.\n\n💡 Example: Reply to a photo with ${prefix}${commandName}`
+      );
+    }
 
-                await message.reply("✂ Removing background... Please wait.");
+    if (api.setMessageReaction) {
+      api.setMessageReaction("✂️", event.messageID, () => {}, true);
+    }
 
-                try {
-                        const photoArray = replyObj.photo;
-                        const fileId = photoArray ? photoArray[photoArray.length - 1].file_id : replyObj.document.file_id;
-                        const fileInfo = await ctx.api.getFile(fileId);
-                        const inputImgUrl = `https://api.telegram.org/file/bot${ctx.api.token}/${fileInfo.file_path}`;
+    let tmpPath = null;
 
-                        // Use removebg transparent stream service
-                        const removeBgUrl = `https://image.pollinations.ai/prompt/transparent%20background%20isolated%20subject%20no%20background?image=${encodeURIComponent(inputImgUrl)}`;
+    try {
+      let finalStream = null;
 
-                        const response = await axios.get(removeBgUrl, { responseType: "stream" });
+      // 1. Primary: Toshiro Background Remover API
+      try {
+        const apiUrl = `https://toshiro-api-editz6t9.vercel.app/api/image/rbg?imgUrl=${encodeURIComponent(imageUrl)}`;
+        const res = await axios.get(apiUrl, { timeout: 45000 });
 
-                        await ctx.replyWithDocument({ source: response.data, filename: "removed_bg.png" }, {
-                                caption: "✂ <b>Background Removed (PNG Stream)</b>",
-                                parse_mode: "HTML",
-                                reply_to_message_id: ctx.message?.message_id
-                        });
-                } catch (err) {
-                        message.reply(`❌ Failed to remove background: ${err.message}`);
-                }
+        if (res.data && res.data.success && res.data.result?.image) {
+          const imgData = res.data.result.image;
+          if (imgData.startsWith("data:image")) {
+            const base64Data = imgData.replace(/^data:image\/\w+;base64,/, "");
+            const buffer = Buffer.from(base64Data, "base64");
+            const cacheDir = path.join(__dirname, "cache");
+            await fs.ensureDir(cacheDir);
+            tmpPath = path.join(cacheDir, `rbg_${Date.now()}.png`);
+            await fs.writeFile(tmpPath, buffer);
+            finalStream = fs.createReadStream(tmpPath);
+          } else {
+            finalStream = await global.utils.getStreamFromURL(imgData, "removed_bg.png");
+          }
         }
+      } catch (err) {
+        console.warn("Toshiro RBG failed, using fallback:", err.message);
+      }
+
+      // 2. Fallback: Pollinations transparent background
+      if (!finalStream) {
+        const fallbackUrl = `https://image.pollinations.ai/prompt/transparent%20background%20isolated%20subject%20no%20background?image=${encodeURIComponent(imageUrl)}&nologo=true`;
+        finalStream = await global.utils.getStreamFromURL(fallbackUrl, "removed_bg.png");
+      }
+
+      if (!finalStream) {
+        throw new Error("Failed to process background removal stream.");
+      }
+
+      if (api.setMessageReaction) {
+        api.setMessageReaction("✅", event.messageID, () => {}, true);
+      }
+
+      await message.reply(
+        {
+          body: `✂️ Background Removed Successfully (Transparent PNG)!`,
+          attachment: finalStream
+        },
+        () => {
+          if (tmpPath) fs.remove(tmpPath).catch(() => {});
+        }
+      );
+    } catch (error) {
+      console.error("RemoveBG error:", error);
+      if (tmpPath) fs.remove(tmpPath).catch(() => {});
+      if (api.setMessageReaction) {
+        api.setMessageReaction("❌", event.messageID, () => {}, true);
+      }
+      return message.reply(`❌ Failed to remove background: ${error.message || error}`);
+    }
+  }
 };
