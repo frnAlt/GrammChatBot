@@ -46,6 +46,7 @@ global.db = {
 };
 
 global.utils = require("../utils.js");
+require("../func/moduleResolver.js");
 
 const { createFcaApiWrapper, createFcaEventObject } = require("../system/api-adapter.js");
 const { findClosestCommand, levenshteinDistance } = require("../utils/levenshtein.js");
@@ -99,6 +100,9 @@ async function runTests() {
                         sendMessage: async (thread, text) => ({ message_id: 202, date: Math.floor(Date.now() / 1000) }),
                         deleteMessage: async () => true,
                         setMessageReaction: async () => true,
+                        editMessageText: async (thread, msgId, text) => ({ message_id: msgId, text }),
+                        sendChatAction: async () => true,
+                        setChatTitle: async () => true,
                         getChat: async (id) => ({ id, first_name: "TestUser", username: "testuser" }),
                         banChatMember: async () => true,
                         unbanChatMember: async () => true
@@ -139,6 +143,19 @@ async function runTests() {
 
         await asyncTest("api.setMessageReaction sets emoji reaction", async () => {
                 await api.setMessageReaction("👍", 101, "-100123456");
+        });
+
+        await asyncTest("api.editMessage edits existing message", async () => {
+                const res = await api.editMessage("Updated message content", 202);
+                assert.strictEqual(res.message_id, 202);
+        });
+
+        await asyncTest("api.sendTypingIndicator dispatches chat action", async () => {
+                await api.sendTypingIndicator("-100123456");
+        });
+
+        await asyncTest("api.setTitle updates chat title", async () => {
+                await api.setTitle("New Group Name", "-100123456");
         });
 
         // 3. Test Levenshtein Typo Engine
@@ -202,7 +219,28 @@ async function runTests() {
                 assert.strictEqual(plugins.length > 0, true);
         });
 
-        // 7. Test Command Executions
+        // 7. Test SafeStorage & ResponseDB
+        console.log("\n🔹 Testing SafeStorage & ResponseDB...");
+        const safeStorage = require("../database/controller/safeStorage.js");
+        const responseDB = require("../database/controller/responseDB.js");
+
+        test("safeStorage writes and reads safely", () => {
+                const testPath = path.join(__dirname, "temp_safe_storage.json");
+                safeStorage.writeJSONSafeSync(testPath, { test: 123 });
+                const readBack = safeStorage.readJSONSafe(testPath);
+                assert.strictEqual(readBack.test, 123);
+                try { require("fs").unlinkSync(testPath); } catch (_) {}
+                try { require("fs").unlinkSync(testPath + ".bak"); } catch (_) {}
+        });
+
+        test("responseDB adds, gets, and removes taught responses", () => {
+                responseDB.add("test_ping", "test_pong", { author: "999999999", isGlobal: true });
+                const found = responseDB.get("test_ping");
+                assert.strictEqual(found?.reply, "test_pong");
+                responseDB.remove("test_ping");
+        });
+
+        // 8. Test Command Executions
         console.log("\n🔹 Testing Command Executions...");
         const loadScripts = require("../bot/login/loadScripts.js");
         await loadScripts(
@@ -234,7 +272,7 @@ async function runTests() {
                 SyntaxError: () => true
         };
 
-        const testCmds = ["examplecmd", "help", "stats", "admin", "shell"];
+        const testCmds = ["examplecmd", "help", "stats", "admin", "shell", "bot", "botstate", "uptime", "search", "response"];
         for (const cmdName of testCmds) {
                 const cmd = global.GoatBot.commands.get(cmdName);
                 if (cmd && typeof cmd.onStart === "function") {
@@ -265,6 +303,8 @@ async function runTests() {
 
         if (failed > 0) {
                 process.exit(1);
+        } else {
+                process.exit(0);
         }
 }
 

@@ -1,4 +1,5 @@
-const { existsSync, writeJsonSync, readJSONSync } = require("fs-extra");
+const { existsSync } = require("fs-extra");
+const { readJSONSafe, writeJSONSafeSync } = require("./safeStorage.js");
 const moment = require("moment-timezone");
 const path = require("path");
 const _ = require("lodash");
@@ -18,7 +19,11 @@ const taskQueue = new TaskQueue(function (task, callback) {
         else {
                 try {
                         const result = task();
-                        callback(null, result);
+                        if (result && typeof result.then === "function") {
+                                result.then(res => callback(null, res)).catch(err => callback(err));
+                        } else {
+                                callback(null, result);
+                        }
                 }
                 catch (err) {
                         callback(err);
@@ -26,7 +31,7 @@ const taskQueue = new TaskQueue(function (task, callback) {
         }
 });
 
-const { creatingThreadData } = global.client?.database || { creatingThreadData: [] };
+const { creatingThreadData } = global.client.database;
 
 module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
         let Threads = [];
@@ -43,14 +48,14 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                         break;
                 }
                 case "json": {
-                        if (!existsSync(pathThreadsData))
-                                writeJsonSync(pathThreadsData, [], optionsWriteJSON);
-                        Threads = readJSONSync(pathThreadsData);
+                        Threads = readJSONSafe(pathThreadsData, []);
                         break;
                 }
         }
 
         global.db.allThreadData = Threads;
+        if (!global.db.threadMap) global.db.threadMap = new Map();
+        Threads.forEach(t => { if (t && t.threadID) global.db.threadMap.set(String(t.threadID), t); });
 
         async function save(threadID, threadData, mode, path) {
                 try {
@@ -78,6 +83,7 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                                                 _.omit(dataCreated._doc, ["_id", "__v"]) :
                                                                 dataCreated.get({ plain: true });
                                                         global.db.allThreadData.push(dataCreated);
+                                                        global.db.threadMap?.set(String(threadData.threadID), dataCreated);
                                                         return _.cloneDeep(dataCreated);
                                                 }
                                                 case "json": {
@@ -85,7 +91,8 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                                         threadData.createdAt = timeCreate;
                                                         threadData.updatedAt = timeCreate;
                                                         global.db.allThreadData.push(threadData);
-                                                        writeJsonSync(pathThreadsData, global.db.allThreadData, optionsWriteJSON);
+                                                        global.db.threadMap?.set(String(threadData.threadID), threadData);
+                                                        writeJSONSafeSync(pathThreadsData, global.db.allThreadData, optionsWriteJSON);
                                                         return _.cloneDeep(threadData);
                                                 }
                                                 default: {
@@ -115,17 +122,19 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                                         for (const key in threadData)
                                                                 dataWillChange[key] = threadData[key];
 
-                                        switch (databaseType) {
+                                         switch (databaseType) {
                                                 case "mongodb": {
                                                         let dataUpdated = await threadModel.findOneAndUpdate({ threadID }, dataWillChange, { returnDocument: 'after' });
                                                         dataUpdated = _.omit(dataUpdated._doc, ["_id", "__v"]);
                                                         global.db.allThreadData[index] = dataUpdated;
+                                                        global.db.threadMap?.set(String(threadID), dataUpdated);
                                                         return _.cloneDeep(dataUpdated);
                                                 }
                                                 case "sqlite": {
                                                         const thread = await threadModel.findOne({ where: { threadID } });
                                                         const dataUpdated = (await thread.update(dataWillChange)).get({ plain: true });
                                                         global.db.allThreadData[index] = dataUpdated;
+                                                        global.db.threadMap?.set(String(threadID), dataUpdated);
                                                         return _.cloneDeep(dataUpdated);
                                                 }
                                                 case "json": {
@@ -134,7 +143,8 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                                                 ...oldThreadData,
                                                                 ...dataWillChange
                                                         };
-                                                        writeJsonSync(pathThreadsData, global.db.allThreadData, optionsWriteJSON);
+                                                        global.db.threadMap?.set(String(threadID), global.db.allThreadData[index]);
+                                                        writeJSONSafeSync(pathThreadsData, global.db.allThreadData, optionsWriteJSON);
                                                         return _.cloneDeep(global.db.allThreadData[index]);
                                                 }
                                                 default:
@@ -145,6 +155,7 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                 case "delete": {
                                         if (index != -1) {
                                                 global.db.allThreadData.splice(index, 1);
+                                                global.db.threadMap?.delete(String(threadID));
                                                 switch (databaseType) {
                                                         case "mongodb":
                                                                 await threadModel.deleteOne({ threadID });
@@ -153,7 +164,7 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                                                 await threadModel.destroy({ where: { threadID } });
                                                                 break;
                                                         case "json":
-                                                                writeJsonSync(pathThreadsData, global.db.allThreadData, optionsWriteJSON);
+                                                                writeJSONSafeSync(pathThreadsData, global.db.allThreadData, optionsWriteJSON);
                                                                 break;
                                                         default:
                                                                 break;
@@ -172,18 +183,16 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                 }
         }
 
-        async function create_(threadID, threadInfo) {
+        async function create_(threadID, threadInfo, isGroupHint) {
                 const findInCreatingData = creatingThreadData.find(t => t.threadID == threadID);
                 if (findInCreatingData)
                         return findInCreatingData.promise;
 
                 const queue = new Promise(async function (resolve_, reject_) {
                         try {
-                                if (global.db.allThreadData.some(t => t.threadID == threadID)) {
-                                        throw new CustomError({
-                                                name: "DATA_ALREADY_EXISTS",
-                                                message: `Thread with id "${threadID}" already exists in the data`
-                                        });
+                                const existingThread = global.db.allThreadData.find(t => t.threadID == threadID);
+                                if (existingThread) {
+                                        return resolve_(_.cloneDeep(existingThread));
                                 }
                                 if (isNaN(threadID)) {
                                         throw new CustomError({
@@ -191,26 +200,82 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                                 message: `The first argument (threadID) must be a number, not a ${typeof threadID}`
                                         });
                                 }
-                                threadInfo = threadInfo || (api && typeof api.getThreadInfo === "function" ? await api.getThreadInfo(threadID) : null) || { threadName: "Telegram Chat", userInfo: [], adminIDs: [] };
-                                const { threadName, userInfo, adminIDs } = threadInfo;
-                                const newAdminsIDs = adminIDs.reduce(function (_, b) {
-                                        _.push(b.id);
-                                        return _;
-                                }, []);
+				if (!threadInfo) {
+					if (isGroupHint === false) {
+						let dmUserName = "Facebook User";
+						let dmGender = "UNKNOWN";
+						try {
+							if (typeof api.getUserInfo === "function") {
+								const uInfoMap = await Promise.race([
+									api.getUserInfo(threadID),
+									new Promise((_, r) => setTimeout(() => r(new Error("Timeout")), 1500))
+								]);
+								const u = uInfoMap && uInfoMap[threadID];
+								if (u && u.name) {
+									dmUserName = u.name;
+									dmGender = u.gender || "UNKNOWN";
+								}
+							}
+						} catch (_) {}
+						threadInfo = {
+							threadName: dmUserName,
+							userInfo: [{ id: String(threadID), name: dmUserName, gender: dmGender }],
+							adminIDs: [],
+							nicknames: {},
+							emoji: "👍",
+							approvalMode: false,
+							threadType: 1
+						};
+					} else {
+						try {
+							const fetchPromise = api.getThreadInfo(threadID);
+							const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout")), 5000));
+							threadInfo = await Promise.race([fetchPromise, timeoutPromise]);
+						} catch (err) {
+							threadInfo = {
+								threadName: isGroupHint ? "Group Chat" : "Messenger Chat",
+								userInfo: [{ id: String(threadID), name: "User", gender: "UNKNOWN" }],
+								adminIDs: [],
+								nicknames: {},
+								emoji: "👍",
+								approvalMode: false,
+								threadType: isGroupHint ? 2 : 1
+							};
+							if (api && typeof api.getThreadInfo === "function") {
+								api.getThreadInfo(threadID).then(async (fullInfo) => {
+									if (fullInfo && fullInfo.threadName) {
+										await refreshInfo(threadID, fullInfo).catch(() => {});
+									}
+								}).catch(() => {});
+							}
+						}
+					}
+				}
+				const threadName = threadInfo.threadName || "Messenger Chat";
+				const userInfo = Array.isArray(threadInfo.userInfo) ? threadInfo.userInfo : [];
+				const adminIDs = Array.isArray(threadInfo.adminIDs) ? threadInfo.adminIDs : [];
+				const nicknames = threadInfo.nicknames || {};
+				const newAdminsIDs = adminIDs.reduce(function (_, b) {
+					if (b && b.id) _.push(b.id);
+					else if (typeof b === "string") _.push(b);
+					return _;
+				}, []);
 
-                                const newMembers = userInfo.reduce(function (arr, user) {
-                                        const userID = user.id;
-                                        arr.push({
-                                                userID,
-                                                name: user.name,
-                                                gender: user.gender,
-                                                nickname: threadInfo.nicknames[userID] || null,
-                                                inGroup: true,
-                                                count: 0,
-                                                permissionConfigDashboard: false
-                                        });
-                                        return arr;
-                                }, []);
+				const newMembers = userInfo.reduce(function (arr, user) {
+					if (user && user.id) {
+						const userID = user.id;
+						arr.push({
+							userID,
+							name: user.name || "Facebook User",
+							gender: user.gender || "UNKNOWN",
+							nickname: nicknames[userID] || null,
+							inGroup: true,
+							count: 0,
+							permissionConfigDashboard: false
+						});
+					}
+					return arr;
+				}, []);
 
                                 let threadData = {
                                         threadID,
@@ -229,15 +294,40 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                                 customCommand: true
                                         },
                                         data: {},
-                                        isGroup: threadInfo.threadType == 2
+                                        isGroup: isGroupHint !== undefined ? Boolean(isGroupHint) : threadInfo.threadType == 2
                                 };
                                 threadData = await save(threadID, threadData, "create");
                                 resolve_(_.cloneDeep(threadData));
                         }
                         catch (err) {
-                                reject_(err);
+                                if (err && (err.name == "SequelizeUniqueConstraintError" || (err.name == "MongoServerError" && err.code == 11000))) {
+                                        let existing = null;
+                                        try {
+                                                if (threadModel && typeof threadModel.findOne == "function") {
+                                                        const row = await threadModel.findOne({ where: { threadID } });
+                                                        if (row) {
+                                                                existing = row.get ? row.get({ plain: true }) : row;
+                                                                if (!global.db.allThreadData.some(t => t.threadID == threadID))
+                                                                        global.db.allThreadData.push(existing);
+                                                        }
+                                                }
+                                        }
+                                        catch (_) {
+                                                existing = null;
+                                        }
+                                        if (existing)
+                                                resolve_(_.cloneDeep(existing));
+                                        else
+                                                reject_(new CustomError({
+                                                        name: "DATA_ALREADY_EXISTS",
+                                                        message: `Thread with id "${threadID}" already exists in the data`
+                                                }));
+                                }
+                                else
+                                        reject_(err);
                         }
-                        creatingThreadData.splice(creatingThreadData.findIndex(t => t.threadID == threadID), 1);
+                        const idx = creatingThreadData.findIndex(t => String(t.threadID) === String(threadID));
+                        if (idx !== -1) creatingThreadData.splice(idx, 1);
                 });
                 creatingThreadData.push({
                         threadID,
@@ -246,10 +336,10 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                 return queue;
         }
 
-        async function create(threadID, threadInfo) {
+        async function create(threadID, threadInfo, isGroupHint) {
                 return new Promise(function (resolve, reject) {
                         taskQueue.push(async function () {
-                                create_(threadID, threadInfo)
+                                return create_(threadID, threadInfo, isGroupHint)
                                         .then(resolve)
                                         .catch(reject);
                         });
@@ -261,14 +351,26 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                         taskQueue.push(async function () {
                                 try {
                                         if (isNaN(threadID)) {
-                                                reject(new CustomError({
+                                                return reject(new CustomError({
                                                         name: "INVALID_THREAD_ID",
                                                         message: `The first argument (threadID) must be a number, not a ${typeof threadID}`
                                                 }));
                                         }
                                         const threadInfo = await get_(threadID);
-                                        newThreadInfo = newThreadInfo || (api && typeof api.getThreadInfo === "function" ? await api.getThreadInfo(threadID) : null) || { threadName: "Telegram Chat", userInfo: [], adminIDs: [] };
-                                        const { userInfo, adminIDs, nicknames } = newThreadInfo;
+                                        if (!threadInfo) return resolve(null);
+                                        try {
+                                                if (!newThreadInfo && api && typeof api.getThreadInfo === "function") {
+                                                        const fetchPromise = api.getThreadInfo(threadID);
+                                                        const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout")), 2500));
+                                                        newThreadInfo = await Promise.race([fetchPromise, timeoutPromise]);
+                                                }
+                                        } catch (_) {
+                                                newThreadInfo = null;
+                                        }
+                                        if (!newThreadInfo || !Array.isArray(newThreadInfo.userInfo)) {
+                                                return resolve(threadInfo);
+                                        }
+                                        const { userInfo = [], adminIDs = [], nicknames = {} } = newThreadInfo;
                                         let oldMembers = threadInfo.members;
                                         const newMembers = [];
                                         for (const user of userInfo) {
@@ -362,13 +464,16 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
                                 message: `The first argument (threadID) must be a number, not a ${typeof threadID}`
                         });
                 }
-                let threadData;
-
-                const index = global.db.allThreadData.findIndex(t => t.threadID == threadID);
-                if (index === -1)
-                        threadData = await create_(threadID);
-                else
-                        threadData = global.db.allThreadData[index];
+                let threadData = global.db.threadMap?.get(String(threadID));
+                if (!threadData) {
+                        const index = global.db.allThreadData.findIndex(t => t.threadID == threadID);
+                        if (index === -1)
+                                threadData = await create_(threadID);
+                        else {
+                                threadData = global.db.allThreadData[index];
+                                global.db.threadMap?.set(String(threadID), threadData);
+                        }
+                }
 
                 // Track access for cache eviction
                 if (global.dbCacheManager) {
@@ -401,8 +506,8 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
 
         async function get(threadID, path, defaultValue, query) {
                 return new Promise(async function (resolve, reject) {
-                        taskQueue.push(function () {
-                                get_(threadID, path, defaultValue, query)
+                        taskQueue.push(async function () {
+                                return get_(threadID, path, defaultValue, query)
                                         .then(resolve)
                                         .catch(reject);
                         });
@@ -512,6 +617,7 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
 
         return {
                 existsSync: function existsSync(threadID) {
+                        if (global.db.threadMap?.has(String(threadID))) return true;
                         return global.db.allThreadData.some(t => t.threadID == threadID);
                 },
                 create,

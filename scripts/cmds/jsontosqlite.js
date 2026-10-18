@@ -1,5 +1,5 @@
 const fs = require("fs-extra");
-const { sequelize } = global.db;
+const getSequelize = () => global.db?.sequelize;
 
 module.exports = {
 	config: {
@@ -87,7 +87,7 @@ async function syncThreadData(message, threadModel, getLang) {
 	}
 
 	try {
-		await sequelize.transaction(async (transaction) => {
+		await getSequelize().transaction(async (transaction) => {
 			for (const thread of oldThreadsData) {
 				const threadIndex = global.db.allThreadData.findIndex(item => item.threadID == thread.threadID);
 
@@ -125,7 +125,7 @@ async function syncUserData(message, userModel, getLang) {
 	}
 
 	try {
-		await sequelize.transaction(async (transaction) => {
+		await getSequelize().transaction(async (transaction) => {
 			for (const user of oldUsersData) {
 				const userIndex = global.db.allUserData.findIndex(item => item.userID == user.userID);
 
@@ -163,7 +163,7 @@ async function syncDashBoardData(message, dashBoardModel, getLang) {
 	}
 
 	try {
-		await sequelize.transaction(async (transaction) => {
+		await getSequelize().transaction(async (transaction) => {
 			for (const dashboard of oldDashBoardData) {
 				const dashboardIndex = global.db.dashBoardData.findIndex(item => item.email == dashboard.email);
 
@@ -201,7 +201,7 @@ async function syncGlobalData(message, globalModel, getLang) {
 	}
 
 	try {
-		await sequelize.transaction(async (transaction) => {
+		await getSequelize().transaction(async (transaction) => {
 			for (const global_ of oldGlobalData) {
 				const globalIndex = global.db.allGlobalData.findIndex(item => item.key == global_.key);
 

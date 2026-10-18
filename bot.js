@@ -41,9 +41,11 @@ async function handleTelegramEvent(ctx) {
         const getLang = (cmd, key, ...args) => utils.getText(cmd, key, ...args);
 
         // ————————————————— SYSTEM LISTENERS (/includes) ————————————————— //
-        await handleReply({ api, event, message, role, getLang: (key, ...args) => getLang(null, key, ...args) });
-        await handleReaction({ api, event, message, role, getLang: (key, ...args) => getLang(null, key, ...args) });
-        await handleEvent({ api, event, message, role });
+        if (GoatBot.eventsOff !== true) {
+                await handleReply({ api, event, message, role, getLang: (key, ...args) => getLang(null, key, ...args) });
+                await handleReaction({ api, event, message, role, getLang: (key, ...args) => getLang(null, key, ...args) });
+                await handleEvent({ api, event, message, role });
+        }
 
         // ————————————————— HANDLE ONCHAT LISTENERS ————————————————— //
         for (const commandName of GoatBot.onChat) {
@@ -95,7 +97,24 @@ async function handleTelegramEvent(ctx) {
                 }
         }
 
-        if (!isCommand || !commandName) return;
+        if (!isCommand || !commandName) {
+                // Auto-reply matcher from Response Database
+                const responseDB = global.db?.responseDB || global.responseDB;
+                if (responseDB && typeof responseDB.get === "function" && event.body) {
+                        try {
+                                const matched = responseDB.get(event.body.trim(), { threadID: event.threadID });
+                                if (matched && matched.reply) {
+                                        return message.reply(matched.reply);
+                                }
+                        } catch (_) {}
+                }
+                return;
+        }
+
+        // Bot maintenance / OFF mode check
+        if (GoatBot.botOff === true && role < 2) {
+                return;
+        }
 
         // Resolve alias
         if (GoatBot.aliases.has(commandName)) {

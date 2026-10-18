@@ -151,24 +151,30 @@ module.exports = async function (api, threadModel, userModel, dashBoardModel, gl
 				global.temp.contentScripts[folderModules][file] = contentFile;
 
 
-				let command = require(pathCommand);
-				if (command.default) {
-					command = command.default;
+				let commandModule = require(pathCommand);
+				let command = commandModule;
+				if (commandModule.default && typeof commandModule.default === "object") {
+					command = { ...commandModule, ...commandModule.default };
+				} else if (commandModule.default && typeof commandModule.default === "function") {
+					command = { ...commandModule };
+					command.entry = commandModule.default;
+					if (!command.onStart) command.onStart = commandModule.default;
 				}
 				command.location = pathCommand;
 
 				// Normalize meta into config if needed (Cassidy / Floppa format)
-				if (command.meta && !command.config) {
+				const rawMeta = command.meta || commandModule.meta;
+				if (rawMeta && !command.config) {
 					command.config = {
-						name: command.meta.name,
-						version: command.meta.version || "1.0.0",
-						author: command.meta.author || command.meta.credits || "Floppa Engine",
-						cooldowns: command.meta.waitingTime || command.meta.cooldown || 5,
-						role: command.meta.role !== undefined ? command.meta.role : (command.meta.hasPermssion || 0),
-						description: command.meta.description || "No description provided.",
-						category: command.meta.category || "General",
-						guide: { en: command.meta.usage || `{p}${command.meta.name}` },
-						aliases: command.meta.otherNames || command.meta.aliases || []
+						name: rawMeta.name,
+						version: rawMeta.version || "1.0.0",
+						author: rawMeta.author || rawMeta.credits || "Floppa Engine",
+						cooldowns: rawMeta.waitingTime || rawMeta.cooldown || 5,
+						role: rawMeta.role !== undefined ? rawMeta.role : (rawMeta.hasPermssion || 0),
+						description: rawMeta.description || "No description provided.",
+						category: rawMeta.category || "General",
+						guide: { en: rawMeta.usage || `{p}${rawMeta.name}` },
+						aliases: rawMeta.otherNames || rawMeta.aliases || []
 					};
 				}
 

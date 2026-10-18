@@ -1,5 +1,9 @@
 // @ts-check
-import { creatorX } from "./handlers/page/webhook.js";
+const creatorX = (cb) => ({
+  handleEvents: (req, res) => res.sendStatus ? res.sendStatus(200) : res.end(),
+  handleGetEvents: (req, res) => res.sendStatus ? res.sendStatus(200) : res.end(),
+  pageApi: null
+});
 import { Datum } from "@cass-modules/Datum";
 
 import { Readable } from "stream";

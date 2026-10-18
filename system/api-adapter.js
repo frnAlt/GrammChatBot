@@ -328,6 +328,115 @@ function createFcaApiWrapper(ctx) {
                         } catch (err) {
                                 if (typeof callback === "function") callback(err);
                         }
+                },
+
+                removeUserFromGroup: async function (userID, threadID, callback) {
+                        return this.kickParticipant(userID, threadID, callback);
+                },
+
+                addUserToGroup: async function (userID, threadID, callback) {
+                        try {
+                                const targetThread = threadID || ctx.chat?.id;
+                                await botApi.unbanChatMember(targetThread, userID).catch(() => {});
+                                if (typeof callback === "function") callback(null);
+                        } catch (err) {
+                                if (typeof callback === "function") callback(err);
+                        }
+                },
+
+                editMessage: async function (text, messageID, callback, threadID) {
+                        const targetChat = (threadID || ctx.chat?.id)?.toString();
+                        const msgId = typeof messageID === "object" ? messageID.messageID : messageID;
+                        try {
+                                const bodyText = typeof text === "object" && text.body ? text.body : (typeof text === "string" ? text : String(text));
+                                const res = await botApi.editMessageText(targetChat, Number(msgId), bodyText, { parse_mode: "HTML" }).catch(async () => {
+                                        return await botApi.editMessageText(targetChat, Number(msgId), bodyText);
+                                });
+                                if (typeof callback === "function") callback(null, res);
+                                return res;
+                        } catch (err) {
+                                if (typeof callback === "function") callback(err);
+                                return false;
+                        }
+                },
+
+                sendTypingIndicator: async function (threadID, callback) {
+                        const targetChat = (threadID || ctx.chat?.id)?.toString();
+                        try {
+                                await botApi.sendChatAction(targetChat, "typing");
+                                if (typeof callback === "function") callback(null);
+                                return () => {};
+                        } catch (err) {
+                                if (typeof callback === "function") callback(err);
+                                return () => {};
+                        }
+                },
+
+                setTitle: async function (newTitle, threadID, callback) {
+                        const targetChat = (threadID || ctx.chat?.id)?.toString();
+                        try {
+                                await botApi.setChatTitle(targetChat, String(newTitle));
+                                if (typeof callback === "function") callback(null);
+                        } catch (err) {
+                                if (typeof callback === "function") callback(err);
+                        }
+                },
+
+                changeNickname: async function (nickname, threadID, userID, callback) {
+                        try {
+                                if (typeof callback === "function") callback(null);
+                        } catch (err) {
+                                if (typeof callback === "function") callback(err);
+                        }
+                },
+
+                changeGroupImage: async function (image, threadID, callback) {
+                        const targetChat = (threadID || ctx.chat?.id)?.toString();
+                        try {
+                                const inputFile = createInputFile(image);
+                                if (inputFile) {
+                                        await botApi.setChatPhoto(targetChat, inputFile);
+                                }
+                                if (typeof callback === "function") callback(null);
+                        } catch (err) {
+                                if (typeof callback === "function") callback(err);
+                        }
+                },
+
+                getUID: async function (link) {
+                        if (!link) return null;
+                        const str = String(link).trim();
+                        if (/^\d+$/.test(str)) return str;
+                        const user = global.db?.allUserData?.find(u => u.username && u.username.toLowerCase() === str.replace(/^@/, "").toLowerCase());
+                        return user?.userID ? String(user.userID) : null;
+                },
+
+                getUserID: async function (username) {
+                        if (!username) return [];
+                        const clean = String(username).replace(/^@/, "").toLowerCase().trim();
+                        const found = (global.db?.allUserData || []).filter(u =>
+                                (u.name && u.name.toLowerCase().includes(clean)) ||
+                                (u.username && u.username.toLowerCase().includes(clean)) ||
+                                String(u.userID) === clean
+                        );
+                        return found.map(u => ({ userID: u.userID, name: u.name }));
+                },
+
+                resolvePhotoUrl: async function (fileId) {
+                        return await this.getFileUrl(fileId);
+                },
+
+                getThreadList: async function (limit = 20, timestamp = null, tags = [], callback) {
+                        const cb = typeof callback === "function" ? callback : (typeof tags === "function" ? tags : null);
+                        try {
+                                const threads = global.db?.allThreadData || [];
+                                const sliced = threads.slice(0, Number(limit) || 20);
+                                if (cb) cb(null, sliced);
+                                return sliced;
+                        } catch (err) {
+                                if (cb) cb(err);
+                                return [];
+                        }
                 }
         };
 }
@@ -357,6 +466,14 @@ function createFcaEventObject(ctx) {
         if (msg.photo) {
                 const largestPhoto = msg.photo[msg.photo.length - 1];
                 event.attachments.push({ type: "photo", url: largestPhoto.file_id, file_id: largestPhoto.file_id });
+        } else if (msg.video) {
+                event.attachments.push({ type: "video", url: msg.video.file_id, file_id: msg.video.file_id });
+        } else if (msg.audio) {
+                event.attachments.push({ type: "audio", url: msg.audio.file_id, file_id: msg.audio.file_id });
+        } else if (msg.voice) {
+                event.attachments.push({ type: "audio", url: msg.voice.file_id, file_id: msg.voice.file_id });
+        } else if (msg.sticker) {
+                event.attachments.push({ type: "sticker", url: msg.sticker.file_id, file_id: msg.sticker.file_id });
         } else if (msg.document) {
                 event.attachments.push({ type: "file", url: msg.document.file_id, filename: msg.document.file_name });
         }
@@ -369,6 +486,14 @@ function createFcaEventObject(ctx) {
 
                 if (replyPhoto) {
                         replyAttachments.push({ type: "photo", url: replyPhoto.file_id, file_id: replyPhoto.file_id });
+                } else if (replyMsg.video) {
+                        replyAttachments.push({ type: "video", url: replyMsg.video.file_id, file_id: replyMsg.video.file_id });
+                } else if (replyMsg.audio) {
+                        replyAttachments.push({ type: "audio", url: replyMsg.audio.file_id, file_id: replyMsg.audio.file_id });
+                } else if (replyMsg.voice) {
+                        replyAttachments.push({ type: "audio", url: replyMsg.voice.file_id, file_id: replyMsg.voice.file_id });
+                } else if (replyMsg.sticker) {
+                        replyAttachments.push({ type: "sticker", url: replyMsg.sticker.file_id, file_id: replyMsg.sticker.file_id });
                 } else if (replyDoc) {
                         replyAttachments.push({ type: "file", url: replyDoc.file_id, file_id: replyDoc.file_id, filename: replyDoc.file_name });
                 }
@@ -376,6 +501,7 @@ function createFcaEventObject(ctx) {
                 event.messageReply = {
                         messageID: replyMsg.message_id,
                         senderID: replyMsg.from?.id?.toString() || "",
+                        actorFbId: replyMsg.from?.id?.toString() || "",
                         body: replyMsg.text || replyMsg.caption || "",
                         attachments: replyAttachments
                 };

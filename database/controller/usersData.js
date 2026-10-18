@@ -1,4 +1,5 @@
-const { existsSync, writeJsonSync, readJSONSync } = require("fs-extra");
+const { existsSync } = require("fs-extra");
+const { readJSONSafe, writeJSONSafeSync } = require("./safeStorage.js");
 const moment = require("moment-timezone");
 const path = require("path");
 const axios = require("axios");
@@ -19,7 +20,11 @@ const taskQueue = new TaskQueue(function (task, callback) {
         else {
                 try {
                         const result = task();
-                        callback(null, result);
+                        if (result && typeof result.then === "function") {
+                                result.then(res => callback(null, res)).catch(err => callback(err));
+                        } else {
+                                callback(null, result);
+                        }
                 }
                 catch (err) {
                         callback(err);
@@ -27,7 +32,7 @@ const taskQueue = new TaskQueue(function (task, callback) {
         }
 });
 
-const { creatingUserData } = global.client?.database || { creatingUserData: [] };
+const { creatingUserData } = global.client.database;
 
 module.exports = async function (databaseType, userModel, api, fakeGraphql) {
         let Users = [];
@@ -44,13 +49,13 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                         break;
                 }
                 case "json": {
-                        if (!existsSync(pathUsersData))
-                                writeJsonSync(pathUsersData, [], optionsWriteJSON);
-                        Users = readJSONSync(pathUsersData);
+                        Users = readJSONSafe(pathUsersData, []);
                         break;
                 }
         }
         global.db.allUserData = Users;
+        if (!global.db.userMap) global.db.userMap = new Map();
+        Users.forEach(u => { if (u && u.userID) global.db.userMap.set(String(u.userID), u); });
 
         async function save(userID, userData, mode, path) {
                 try {
@@ -79,6 +84,7 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                                                 _.omit(dataCreated._doc, ["_id", "__v"]) :
                                                                 dataCreated.get({ plain: true });
                                                         global.db.allUserData.push(dataCreated);
+                                                        global.db.userMap?.set(String(userData.userID), dataCreated);
                                                         return _.cloneDeep(dataCreated);
                                                 }
                                                 case "json": {
@@ -86,7 +92,8 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                                         userData.createdAt = timeCreate;
                                                         userData.updatedAt = timeCreate;
                                                         global.db.allUserData.push(userData);
-                                                        writeJsonSync(pathUsersData, global.db.allUserData, optionsWriteJSON);
+                                                        global.db.userMap?.set(String(userData.userID), userData);
+                                                        writeJSONSafeSync(pathUsersData, global.db.allUserData, optionsWriteJSON);
                                                         return _.cloneDeep(userData);
                                                 }
                                                 default: {
@@ -121,12 +128,14 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                                         let dataUpdated = await userModel.findOneAndUpdate({ userID }, dataWillChange, { returnDocument: 'after' });
                                                         dataUpdated = _.omit(dataUpdated._doc, ["_id", "__v"]);
                                                         global.db.allUserData[index] = dataUpdated;
+                                                        global.db.userMap?.set(String(userID), dataUpdated);
                                                         return _.cloneDeep(dataUpdated);
                                                 }
                                                 case "sqlite": {
                                                         const user = await userModel.findOne({ where: { userID } });
                                                         const dataUpdated = (await user.update(dataWillChange)).get({ plain: true });
                                                         global.db.allUserData[index] = dataUpdated;
+                                                        global.db.userMap?.set(String(userID), dataUpdated);
                                                         return _.cloneDeep(dataUpdated);
                                                 }
                                                 case "json": {
@@ -135,7 +144,8 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                                                 ...oldUserData,
                                                                 ...dataWillChange
                                                         };
-                                                        writeJsonSync(pathUsersData, global.db.allUserData, optionsWriteJSON);
+                                                        global.db.userMap?.set(String(userID), global.db.allUserData[index]);
+                                                        writeJSONSafeSync(pathUsersData, global.db.allUserData, optionsWriteJSON);
                                                         return _.cloneDeep(global.db.allUserData[index]);
                                                 }
                                         }
@@ -144,6 +154,7 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                 case "remove": {
                                         if (index != -1) {
                                                 global.db.allUserData.splice(index, 1);
+                                                global.db.userMap?.delete(String(userID));
                                                 switch (databaseType) {
                                                         case "mongodb":
                                                                 await userModel.deleteOne({ userID });
@@ -152,7 +163,7 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                                                 await userModel.destroy({ where: { userID } });
                                                                 break;
                                                         case "json":
-                                                                writeJsonSync(pathUsersData, global.db.allUserData, optionsWriteJSON);
+                                                                writeJSONSafeSync(pathUsersData, global.db.allUserData, optionsWriteJSON);
                                                                 break;
                                                 }
                                         }
@@ -170,14 +181,18 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
         }
 
         function getNameInDB(userID) {
-                const userData = global.db.allUserData.find(u => u.userID == userID);
-                if (userData)
+                const userData = global.db.userMap?.get(String(userID)) || global.db.allUserData.find(u => u.userID == userID);
+                if (userData && userData.name)
                         return userData.name;
-                else
-                        return null;
+                for (const t of (global.db.allThreadData || [])) {
+                        const m = t.members?.find(mem => mem.userID == userID);
+                        if (m && m.name) return m.name;
+                }
+                return null;
         }
 
         async function getName(userID, checkData = true) {
+                if (!userID) return "User";
                 if (isNaN(userID)) {
                         throw new CustomError({
                                 name: "INVALID_USER_ID",
@@ -185,37 +200,73 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                         });
                 }
 
-                if (checkData)
-                        return getNameInDB(userID);
+                if (checkData) {
+                        const cached = getNameInDB(userID);
+                        if (cached) return cached;
+                }
 
                 try {
-                        const user = await axios.post(`https://www.facebook.com/api/graphql/?q=${`node(${userID}){name}`}`);
-                        return user.data[userID].name;
+                        const user = await axios.post(`https://www.facebook.com/api/graphql/?q=${`node(${userID}){name}`}`, null, { timeout: 2500 });
+                        if (user.data?.[userID]?.name) {
+                                const fetchedName = user.data[userID].name;
+                                const uIdx = global.db.allUserData.findIndex(u => u.userID == userID);
+                                if (uIdx !== -1) global.db.allUserData[uIdx].name = fetchedName;
+                                return fetchedName;
+                        }
                 }
-                catch (error) {
-                        return getNameInDB(userID);
+                catch (error) {}
+
+                if (api && typeof api.getUserInfo === 'function') {
+                        try {
+                                const fetchPromise = api.getUserInfo(String(userID));
+                                const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout")), 2000));
+                                const info = await Promise.race([fetchPromise, timeoutPromise]);
+                                if (info?.[userID]?.name) {
+                                        const fetchedName = info[userID].name;
+                                        const uIdx = global.db.allUserData.findIndex(u => u.userID == userID);
+                                        if (uIdx !== -1) global.db.allUserData[uIdx].name = fetchedName;
+                                        return fetchedName;
+                                }
+                        } catch (_) {}
                 }
+
+                return getNameInDB(userID) || `User ${userID}`;
         }
 
         async function getAvatarUrl(userID) {
-                if (isNaN(userID)) {
-                        throw new CustomError({
-                                name: "INVALID_USER_ID",
-                                message: `The first argument (userID) must be a number, not ${typeof userID}`
-                        });
-                }
-                try {
-                        const user = await axios.post(`https://www.facebook.com/api/graphql/`, null, {
-                                params: {
-                                        doc_id: "5341536295888250",
-                                        variables: JSON.stringify({ height: 500, scale: 1, userID, width: 500 })
-                                }
-                        });
-                        return user.data.data.profile.profile_picture.uri;
-                }
-                catch (err) {
+                if (!userID) {
                         return "https://i.ibb.co/bBSpr5v/143086968-2856368904622192-1959732218791162458-n.png";
                 }
+                const cleanID = String(userID).replace(/(fb)?id[:.]/, "").trim();
+                if (!cleanID || isNaN(cleanID) || cleanID === "0") {
+                        return "https://i.ibb.co/bBSpr5v/143086968-2856368904622192-1959732218791162458-n.png";
+                }
+                const existing = global.db?.allUserData?.find(u => u.userID == cleanID);
+                if (existing?.avatar && !existing.avatar.includes("graph.facebook.com") && !existing.avatar.includes("UlIqmHJn-SK.gif")) {
+                        return existing.avatar;
+                }
+                if (api && typeof api.getUserAvatarUrl === "function") {
+                        try {
+                                const tgUrl = await api.getUserAvatarUrl(cleanID);
+                                if (tgUrl && !tgUrl.includes("graph.facebook.com")) {
+                                        if (existing) existing.avatar = tgUrl;
+                                        return tgUrl;
+                                }
+                        } catch (_) {}
+                }
+                if (api && typeof api.getUserInfo === "function") {
+                        try {
+                                const fetchPromise = api.getUserInfo(cleanID);
+                                const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout")), 1500));
+                                const info = await Promise.race([fetchPromise, timeoutPromise]);
+                                const directUrl = info?.[cleanID]?.thumbSrc || info?.[cleanID]?.profilePicUrl || info?.[cleanID]?.avatar;
+                                if (directUrl && !directUrl.includes("graph.facebook.com") && !directUrl.includes("UlIqmHJn-SK.gif")) {
+                                        if (existing) existing.avatar = directUrl;
+                                        return directUrl;
+                                }
+                        } catch (_) {}
+                }
+                return `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(cleanID)}&size=512`;
         }
 
         async function create_(userID, userInfo) {
@@ -225,11 +276,9 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
 
                 const queue = new Promise(async function (resolve_, reject_) {
                         try {
-                                if (global.db.allUserData.some(u => u.userID == userID)) {
-                                        throw new CustomError({
-                                                name: "DATA_ALREADY_EXISTS",
-                                                message: `User with id "${userID}" already exists in the data`
-                                        });
+                                const existingUser = global.db.allUserData.find(u => u.userID == userID);
+                                if (existingUser) {
+                                        return resolve_(_.cloneDeep(existingUser));
                                 }
                                 if (isNaN(userID)) {
                                         throw new CustomError({
@@ -237,13 +286,48 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                                 message: `The first argument (userID) must be a number, not ${typeof userID}`
                                         });
                                 }
-                                const fetchedInfo = api && typeof api.getUserInfo === "function" ? await api.getUserInfo(userID) : null;
-                                userInfo = userInfo || (fetchedInfo ? fetchedInfo[userID] : null) || { name: `User ${userID}`, gender: "UNKNOWN", vanity: "" };
-                                let userData = {
-                                        userID,
-                                        name: userInfo.name,
-                                        gender: userInfo.gender,
-                                        vanity: userInfo.vanity,
+				if (!userInfo) {
+					if (global.db?.allThreadData) {
+						for (const thread of global.db.allThreadData) {
+							const mem = thread.members?.find(m => String(m.userID) === String(userID));
+							if (mem && mem.name && !mem.name.startsWith("Facebook User ") && !mem.name.startsWith("User ")) {
+								userInfo = { name: mem.name, gender: mem.gender || "UNKNOWN", vanity: null };
+								break;
+							}
+						}
+					}
+					if (!userInfo) {
+						try {
+							if (api && typeof api.getUserInfo === "function") {
+								const fetchPromise = api.getUserInfo(userID);
+								const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout")), 600));
+								const fetched = await Promise.race([fetchPromise, timeoutPromise]);
+								userInfo = fetched?.[userID] || { name: `Facebook User ${userID}`, gender: "UNKNOWN" };
+							} else {
+								userInfo = { name: `Facebook User ${userID}`, gender: "UNKNOWN" };
+							}
+						} catch (err) {
+							userInfo = { name: `Facebook User ${userID}`, gender: "UNKNOWN" };
+							if (api && typeof api.getUserInfo === "function") {
+								api.getUserInfo(userID).then(async (fetched) => {
+									const fetchedName = fetched?.[userID]?.name;
+									if (fetchedName && !fetchedName.startsWith("Facebook User ")) {
+										const uIdx = global.db.allUserData.findIndex(u => String(u.userID) === String(userID));
+										if (uIdx !== -1) {
+											global.db.allUserData[uIdx].name = fetchedName;
+											await save(userID, { name: fetchedName }, "update", "name").catch(() => {});
+										}
+									}
+								}).catch(() => {});
+							}
+						}
+					}
+				}
+				let userData = {
+					userID,
+					name: userInfo.name || `Facebook User ${userID}`,
+					gender: userInfo.gender || "UNKNOWN",
+					vanity: userInfo.vanity || null,
                                         exp: 0,
                                         money: 0,
                                         banned: {},
@@ -254,9 +338,34 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                 resolve_(_.cloneDeep(userData));
                         }
                         catch (err) {
-                                reject_(err);
+                                if (err && (err.name == "SequelizeUniqueConstraintError" || (err.name == "MongoServerError" && err.code == 11000))) {
+                                        let existing = null;
+                                        try {
+                                                if (userModel && typeof userModel.findOne == "function") {
+                                                        const row = await userModel.findOne({ where: { userID } });
+                                                        if (row) {
+                                                                existing = row.get ? row.get({ plain: true }) : row;
+                                                                if (!global.db.allUserData.some(u => u.userID == userID))
+                                                                        global.db.allUserData.push(existing);
+                                                        }
+                                                }
+                                        }
+                                        catch (_) {
+                                                existing = null;
+                                        }
+                                        if (existing)
+                                                resolve_(_.cloneDeep(existing));
+                                        else
+                                                reject_(new CustomError({
+                                                        name: "DATA_ALREADY_EXISTS",
+                                                        message: `User with id "${userID}" already exists in the data`
+                                                }));
+                                }
+                                else
+                                        reject_(err);
                         }
-                        creatingUserData.splice(creatingUserData.findIndex(u => u.userID == userID), 1);
+                        const idx = creatingUserData.findIndex(u => String(u.userID) === String(userID));
+                        if (idx !== -1) creatingUserData.splice(idx, 1);
                 });
                 creatingUserData.push({
                         userID,
@@ -267,8 +376,8 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
 
         async function create(userID, userInfo) {
                 return new Promise(function (resolve, reject) {
-                        taskQueue.push(function () {
-                                create_(userID, userInfo)
+                        taskQueue.push(async function () {
+                                return create_(userID, userInfo)
                                         .then(resolve)
                                         .catch(reject);
                         });
@@ -287,8 +396,18 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                                 });
                                         }
                                         const infoUser = await get_(userID);
-                                        const fetchedInfo2 = api && typeof api.getUserInfo === "function" ? await api.getUserInfo(userID) : null;
-                                        updateInfoUser = updateInfoUser || (fetchedInfo2 ? fetchedInfo2[userID] : null) || { name: `User ${userID}`, gender: "UNKNOWN", vanity: "" };
+                                        try {
+                                                if (!updateInfoUser && api && typeof api.getUserInfo === "function") {
+                                                        const fetchPromise = api.getUserInfo(userID);
+                                                        const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout")), 2500));
+                                                        const fetched = await Promise.race([fetchPromise, timeoutPromise]);
+                                                        updateInfoUser = fetched?.[userID];
+                                                }
+                                        } catch (_) {
+                                                updateInfoUser = null;
+                                        }
+
+                                        if (!updateInfoUser) return resolve(_.cloneDeep(infoUser));
 
                                         const newData = {
                                                 name: updateInfoUser.name,
@@ -353,13 +472,16 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
                                 message: `The first argument (userID) must be a number, not ${typeof userID}`
                         });
                 }
-                let userData;
-
-                const index = global.db.allUserData.findIndex(u => u.userID == userID);
-                if (index === -1)
-                        userData = await create_(userID);
-                else
-                        userData = global.db.allUserData[index];
+                let userData = global.db.userMap?.get(String(userID));
+                if (!userData) {
+                        const index = global.db.allUserData.findIndex(u => u.userID == userID);
+                        if (index === -1)
+                                userData = await create_(userID);
+                        else {
+                                userData = global.db.allUserData[index];
+                                global.db.userMap?.set(String(userID), userData);
+                        }
+                }
 
                 // Track access for cache eviction
                 if (global.dbCacheManager) {
@@ -393,8 +515,8 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
 
         async function get(userID, path, defaultValue, query) {
                 return new Promise((resolve, reject) => {
-                        taskQueue.push(function () {
-                                get_(userID, path, defaultValue, query)
+                        taskQueue.push(async function () {
+                                return get_(userID, path, defaultValue, query)
                                         .then(resolve)
                                         .catch(reject);
                         });
@@ -604,6 +726,7 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
 
         return {
                 existsSync: function existsSync(userID) {
+                        if (global.db.userMap?.has(String(userID))) return true;
                         return global.db.allUserData.some(u => u.userID == userID);
                 },
                 getName,
