@@ -4,7 +4,7 @@
   "description": "GoatBot-V2 & Floppa-Chatbot Telegram Port with AstrBot-Inspired Agentic AI Core, Plugin Skills, Multi-LLM, RAG & Full Command Fleet",
   "main": "index.js",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0 <=24.x"
   },
   "scripts": {
     "start": "node index.js",
@@ -26,7 +26,6 @@
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
     "btch-downloader": "^5.0.4",
-    "canvas": "^2.11.2",
     "chalk": "^4.1.2",
     "cheerio": "^1.0.0-rc.12",
     "child_process": "^1.0.2",
@@ -91,7 +90,6 @@
   },
   "allowScripts": {
     "bcrypt@5.1.1": true,
-    "canvas@2.11.2": true,
     "sqlite3@5.1.7": true,
     "@ffmpeg-installer/linux-x64@4.1.0": true
   },

@@ -188,10 +188,10 @@ module.exports = async function startDashboard(tokenManager) {
                 const currentPort = targetPort + attempt;
                 try {
                         await new Promise((resolve, reject) => {
-                                const srv = server.listen(currentPort, () => resolve(srv))
+                                const srv = server.listen(currentPort, "0.0.0.0", () => resolve(srv))
                                       .on('error', (err) => reject(err));
                         });
-                        utils.log.info("DASHBOARD", `Express Web Dashboard & AstrBot AI Control Panel running at http://localhost:${currentPort}`);
+                        utils.log.info("DASHBOARD", `Express Web Dashboard & AstrBot AI Control Panel running at http://0.0.0.0:${currentPort}`);
                         started = true;
                         break;
                 } catch (e) {
