@@ -30,21 +30,56 @@ async function handleTelegramEvent(ctx) {
 
         const role = await getUserRole(ctx, threadData, userData);
 
-        // Helper `message` wrapper
+        const OutputClass = require("./func/outputClass.js");
+        let activeCmd = "";
+
         const message = {
                 reply: (text, options) => api.sendMessage(text, event.threadID, null, event.messageID),
                 send: (text, options) => api.sendMessage(text, event.threadID),
                 unsend: (msgID) => api.unsendMessage(msgID || event.messageID),
-                react: (emoji) => api.setMessageReaction(emoji, event.messageID, event.threadID)
+                react: (emoji) => api.setMessageReaction(emoji, event.messageID, event.threadID),
+                reaction: (emoji) => api.setMessageReaction(emoji, event.messageID, event.threadID),
+                replyStyled: (content, style) => output.replyStyled(content, style),
+                sendStyled: (content, style) => output.sendStyled(content, style),
+                SyntaxError: async function (targetCommand = activeCmd) {
+                        const target = targetCommand || activeCmd;
+                        const syntaxMsg = utils.getText({ lang: config.language || "en", head: "handlerEvents" }, "commandSyntaxError", prefix, target) || `⚠ Wrong syntax. Type ${prefix}help ${target} for detailed usage.`;
+                        return await api.sendMessage(syntaxMsg, event.threadID, null, event.messageID);
+                }
+        };
+
+        const output = event.output || new OutputClass({ api, event, message });
+
+        const input = event.input || {
+                body: event.body || "",
+                args: [],
+                arguments: [],
+                senderID: event.senderID,
+                threadID: event.threadID,
+                messageID: event.messageID,
+                sid: event.senderID,
+                tid: event.threadID,
+                type: event.type || "message",
+                logMessageType: event.logMessageType || null,
+                logMessageData: event.logMessageData || null,
+                isFacebook: false,
+                isTelegram: true,
+                isGroup: event.isGroup ?? false,
+                isAdmin: role >= 2,
+                isDev: role >= 4,
+                role,
+                censor: (str) => String(str || ""),
+                toString: () => String(event.body || ""),
+                ...event
         };
 
         const getLang = (cmd, key, ...args) => utils.getText(cmd, key, ...args);
 
         // ————————————————— SYSTEM LISTENERS (/includes) ————————————————— //
         if (GoatBot.eventsOff !== true) {
-                await handleReply({ api, event, message, role, getLang: (key, ...args) => getLang(null, key, ...args) });
-                await handleReaction({ api, event, message, role, getLang: (key, ...args) => getLang(null, key, ...args) });
-                await handleEvent({ api, event, message, role });
+                await handleReply({ api, event, message, role, input, output, threadsData: db.threadsData, usersData: db.usersData, threadsDB: db.threadsData, usersDB: db.usersData, globalDB: db.globalData, getLang: (key, ...args) => getLang(null, key, ...args) });
+                await handleReaction({ api, event, message, role, input, output, threadsData: db.threadsData, usersData: db.usersData, threadsDB: db.threadsData, usersDB: db.usersData, globalDB: db.globalData, getLang: (key, ...args) => getLang(null, key, ...args) });
+                await handleEvent({ api, event, message, role, input, output, threadsData: db.threadsData, usersData: db.usersData, threadsDB: db.threadsData, usersDB: db.usersData, globalDB: db.globalData });
         }
 
         // ————————————————— HANDLE ONCHAT LISTENERS ————————————————— //
@@ -57,11 +92,16 @@ async function handleTelegramEvent(ctx) {
                                         api,
                                         event,
                                         message,
+                                        input,
+                                        output,
                                         role,
                                         commandName,
                                         getLang: cmdLang,
                                         threadsData: db.threadsData,
-                                        usersData: db.usersData
+                                        usersData: db.usersData,
+                                        threadsDB: db.threadsData,
+                                        usersDB: db.usersData,
+                                        globalDB: db.globalData
                                 });
                         } catch (err) {
                                 log.error("ON_CHAT", `Error executing onChat (${commandName}): ${err.message}`);
@@ -144,23 +184,9 @@ async function handleTelegramEvent(ctx) {
         // Language translation helper
         const cmdGetLang = (key, ...args) => getLang(command, key, ...args);
 
-        const input = event.input || {
-                body: event.body,
-                args,
-                arguments: args,
-                senderID: event.senderID,
-                threadID: event.threadID,
-                messageID: event.messageID,
-                sid: event.senderID,
-                tid: event.threadID
-        };
-        const output = event.output || {
-                reply: (text, options) => message.reply(text, options),
-                send: (text, options) => message.send(text, options),
-                unsend: (msgID) => message.unsend(msgID),
-                react: (emoji) => message.react(emoji),
-                reaction: (emoji) => message.react(emoji)
-        };
+        activeCmd = commandName;
+        input.args = args;
+        input.arguments = args;
 
         // Execute Command onStart in native Goatbot FCA / Cassidy syntax
         try {

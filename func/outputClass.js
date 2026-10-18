@@ -108,6 +108,54 @@ class OutputClass {
   missingArgs(usage = "") {
     return this.reply(`⚠️ | Missing arguments! Usage: ${usage}`);
   }
+
+  async replyStyled(content, style = {}) {
+    let body = typeof content === "string" ? content : (content?.body || "");
+    if (style && (style.title || style.contentFont || style.titleFont)) {
+      body = format({ content: body, ...style });
+    } else {
+      body = autoBold(body);
+    }
+    const payload = typeof content === "object" && !Array.isArray(content) ? { ...content, body } : body;
+    return this.reply(payload);
+  }
+
+  async sendStyled(content, style = {}) {
+    let body = typeof content === "string" ? content : (content?.body || "");
+    if (style && (style.title || style.contentFont || style.titleFont)) {
+      body = format({ content: body, ...style });
+    } else {
+      body = autoBold(body);
+    }
+    const payload = typeof content === "object" && !Array.isArray(content) ? { ...content, body } : body;
+    return this.send(payload);
+  }
+
+  async reaction(emoji, messageID = this.messageID) {
+    return this.react(emoji, messageID);
+  }
+
+  setUIName(name) {
+    this.uiName = name;
+    return this;
+  }
+
+  async quickWaitReact(msg, opts) {
+    return this.reply(msg);
+  }
+
+  async waitForReaction(msg, cb) {
+    const res = await this.reply(msg);
+    if (typeof cb === "function") {
+      cb({ output: this, message: this.message });
+    }
+    return res;
+  }
+
+  async error(err) {
+    const msg = err?.message || err?.stack || String(err);
+    return this.reply(`❌ | Error: ${msg}`);
+  }
 }
 
 module.exports = OutputClass;

@@ -1,4 +1,4 @@
-<%~ includeFile("partials/header", { user: user }); %>
+<%~ includeFile("partials/header", { user: typeof user !== "undefined" ? user : null }); %>
 <%~ includeFile("partials/message.eta"); %>
 
 <div class="container my-4">
@@ -63,17 +63,17 @@
 
             <div class="mb-3">
               <label class="form-label font-semibold">Persona System Prompt:</label>
-              <textarea id="aiSystemPrompt" class="form-control" rows="3"><%= aiState.systemPrompt %></textarea>
+              <textarea id="aiSystemPrompt" class="form-control" rows="3"><%= (aiState && aiState.systemPrompt) || '' %></textarea>
             </div>
 
             <div class="mb-3">
               <label class="form-label font-semibold">Agentic Tool Toggles:</label>
               <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="toolWebSearch" <%= aiState.toolsEnabled.webSearch ? 'checked' : '' %>>
+                <input class="form-check-input" type="checkbox" id="toolWebSearch" <%= (aiState && aiState.toolsEnabled && aiState.toolsEnabled.webSearch) ? 'checked' : '' %>>
                 <label class="form-check-label" for="toolWebSearch">🌐 Enable Web Search Tool</label>
               </div>
               <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="toolCodeInterpreter" <%= aiState.toolsEnabled.codeInterpreter ? 'checked' : '' %>>
+                <input class="form-check-input" type="checkbox" id="toolCodeInterpreter" <%= (aiState && aiState.toolsEnabled && aiState.toolsEnabled.codeInterpreter) ? 'checked' : '' %>>
                 <label class="form-check-label" for="toolCodeInterpreter">💻 Enable Code Interpreter Sandbox</label>
               </div>
             </div>

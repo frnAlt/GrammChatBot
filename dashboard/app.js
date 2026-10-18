@@ -43,6 +43,12 @@ module.exports = async function startDashboard(tokenManager) {
                 cookie: { maxAge: 1000 * 60 * 60 * 24 }
         }));
 
+        // Expose user to all Eta templates
+        app.use((req, res, next) => {
+                res.locals.user = req.user || null;
+                next();
+        });
+
         // Static files
         app.use("/css", express.static(path.join(__dirname, "css")));
         app.use("/js", express.static(path.join(__dirname, "js")));
@@ -56,6 +62,7 @@ module.exports = async function startDashboard(tokenManager) {
                 const uptimeFormatted = utils.convertTime ? utils.convertTime(uptimeSeconds * 1000) : `${uptimeSeconds}s`;
 
                 res.render("stats", {
+                        user: req.user || null,
                         botUsername: tokenStats.botInfo?.username || "GrammChatBot",
                         botId: tokenStats.botInfo?.id || "N/A",
                         pollingStatus: tokenStats.isPolling ? "Active" : "Stopped",
